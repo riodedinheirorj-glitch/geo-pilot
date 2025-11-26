@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MapPin, Edit, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
 import AddressMapEditor from "@/components/AddressMapEditor";
@@ -24,7 +22,6 @@ export default function LocationAdjustments() {
   const { initialProcessedData, totalOriginalSequences } = (location.state || {}) as LocationAdjustmentsState;
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
-  const [selectedAddressIndex, setSelectedAddressIndex] = useState<number | null>(null);
   const isMobile = useIsMobile();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -127,75 +124,9 @@ export default function LocationAdjustments() {
     toast.success("Localização atualizada!");
   };
 
-  const handleAdjustClick = (index: number) => {
-    setSelectedAddressIndex(index);
-    const addressToEdit = addresses[index];
-    const lat = addressToEdit?.latitude ? parseFloat(addressToEdit.latitude) : -23.55052;
-    const lng = addressToEdit?.longitude ? parseFloat(addressToEdit.longitude) : -46.633309;
-    
-    console.log(`Opening map editor for index ${index}:`);
-    console.log(`  Address: ${addressToEdit.correctedAddress || addressToEdit.originalAddress}`);
-    console.log(`  Original Lat/Lng: ${addressToEdit.latitude}, ${addressToEdit.longitude}`);
-    console.log(`  Map Initial Lat/Lng: ${lat}, ${lng}`);
-
-    if (!addressToEdit.latitude || !addressToEdit.longitude) {
-      toast.info("Coordenadas não encontradas para este endereço. O mapa será centralizado em São Paulo. Arraste o marcador para a localização correta.");
-    }
-  };
-
-  const handleSaveLocation = (coords: { lat: number; lng: number }) => {
-    if (selectedAddressIndex !== null) {
-      setAddresses((prevAddresses) => {
-        const newAddresses = [...prevAddresses];
-        const updatedAddress = {
-          ...newAddresses[selectedAddressIndex],
-          latitude: coords.lat.toFixed(6),
-          longitude: coords.lng.toFixed(6),
-          status: 'atualizado' as const,
-          note: 'Ajustado manualmente no mapa',
-          learned: true,
-        };
-        newAddresses[selectedAddressIndex] = updatedAddress;
-
-        const learningKey = buildLearningKey(updatedAddress);
-        saveLearnedLocation(learningKey, coords.lat, coords.lng);
-
-        return newAddresses;
-      });
-      toast.success("Localização atualizada com sucesso e aprendida para uso futuro!");
-    }
-    setSelectedAddressIndex(null); // Fechar o editor após salvar
-  };
-
-  const handleCloseEditor = () => {
-    setSelectedAddressIndex(null); // Fechar o editor sem salvar
-  };
-
   const handleFinishAdjustments = () => {
     navigate("/", { state: { adjustedData: addresses, fromAdjustments: true, totalOriginalSequences: totalOriginalSequences } });
   };
-
-  const currentAddress = selectedAddressIndex !== null ? addresses[selectedAddressIndex] : null;
-  const initialMapLat = currentAddress?.latitude ? parseFloat(currentAddress.latitude) : -23.55052; // Padrão para São Paulo
-  const initialMapLng = currentAddress?.longitude ? parseFloat(currentAddress.longitude) : -46.633309; // Padrão para São Paulo
-
-  // Função para traduzir nomes de colunas
-  const translateColumnName = (col: string): string => {
-    const translations: {
-      [key: string]: string;
-    } = {
-      'correctedAddress': 'Endereço Corrigido',
-      'Destination Address': 'Endereço do Cliente',
-      'Sequence': 'Identificação do Pacote',
-      'sequence': 'Identificação do Pacote',
-      'Address': 'Endereço do Cliente',
-      'address': 'Endereço do Cliente',
-    };
-    return translations[col] || col;
-  };
-
-  // Filtrar e ordenar colunas para exibição na tabela
-  const columnsToShow = ['correctedAddress'];
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
     return (
@@ -241,61 +172,8 @@ export default function LocationAdjustments() {
           <div className="mb-6 rounded-lg overflow-hidden border-2 border-primary/30">
             <div ref={mapContainer} className="h-[400px] w-full" />
           </div>
-
-          <ScrollArea className="h-[400px] rounded-md border border-primary/30 bg-card/30 mb-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {columnsToShow.map((col, idx) => (
-                    <TableHead key={idx} className="text-xs sm:text-sm">
-                      {translateColumnName(col)}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-xs sm:text-sm text-right min-w-[80px] sm:min-w-[120px]">Ajustar no mapa</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {addresses.map((address, index) => (
-                  <TableRow key={index} className={address.status === 'pending' ? 'bg-red-900/20 hover:bg-red-900/30' : ''}>
-                    {columnsToShow.map((col, colIndex) => (
-                      <TableCell 
-                        key={colIndex} 
-                        className={`text-xs sm:text-sm ${
-                          col === 'correctedAddress' ? 'max-w-[100px] truncate sm:max-w-[200px] lg:max-w-[250px]' : // Ajustado max-w para desktop
-                          ''
-                        }`} 
-                      >
-                        {String(address[col as keyof ProcessedAddress] ?? '')}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-right w-[80px] sm:w-[120px]"> {/* Largura fixa para ações */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAdjustClick(index)}
-                        className="h-7 w-7 p-0" // Garante que o botão seja pequeno
-                      >
-                        <Edit className="h-3 w-3" /> {/* Ícone menor */}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
         </Card>
       </div>
-
-      {/* Renderiza o AddressMapEditor condicionalmente */}
-      {selectedAddressIndex !== null && currentAddress && (
-        <AddressMapEditor
-          initialLat={initialMapLat}
-          initialLng={initialMapLng}
-          addressName={currentAddress.correctedAddress || currentAddress.originalAddress || "Endereço"}
-          onSave={handleSaveLocation}
-          onClose={handleCloseEditor}
-        />
-      )}
     </div>
   );
 }
