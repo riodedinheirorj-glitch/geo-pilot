@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
 import { useIsMobile } from "@/hooks/use-mobile";
 import maplibregl from 'maplibre-gl';
-import 'maplibregl/dist/maplibre-gl.css';
+// import 'maplibregl/dist/maplibre-gl.css'; // Removido: CSS já carregado via CDN no index.html
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
