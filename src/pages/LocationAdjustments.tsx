@@ -194,14 +194,13 @@ export default function LocationAdjustments() {
       'sequence': 'Identificação do Pacote',
       'Address': 'Endereço do Cliente',
       'address': 'Endereço do Cliente',
-      'complement': 'Complemento', // NEW: Add translation for complement
     };
     return translations[col] || col;
   };
 
   // Filtrar e ordenar colunas para exibição na tabela, condicionalmente para mobile
   const mobileOnlyColumns = ['correctedAddress', 'status']; // Colunas visíveis no mobile
-  const desktopOnlyColumns = ['complement', 'latitude', 'longitude']; // Colunas adicionadas para desktop
+  const desktopOnlyColumns = ['latitude', 'longitude']; // Colunas adicionadas para desktop
 
   const columnsToShow = isMobile ? mobileOnlyColumns : [...mobileOnlyColumns, ...desktopOnlyColumns];
 
@@ -272,7 +271,6 @@ export default function LocationAdjustments() {
                           col === 'correctedAddress' ? 'max-w-[100px] truncate sm:max-w-[200px] lg:max-w-[250px]' : // Ajustado max-w para desktop
                           (col === 'latitude' || col === 'longitude') ? 'w-[60px] sm:w-[80px]' : // Ligeiramente mais largo para desktop
                           col === 'status' ? 'w-[60px]' : // Largura fixa para status
-                          col === 'complement' ? 'max-w-[80px] truncate sm:max-w-[120px]' : // Largura para complemento
                           ''
                         }`} 
                       >
