@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
 import { useIsMobile } from "@/hooks/use-mobile";
 import maplibregl from 'maplibre-gl';
-// import 'maplibregl/dist/maplibre-gl.css'; // Removido: CSS já carregado via CDN no index.html
+import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog"; // Importar o novo componente de diálogo
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
@@ -26,6 +26,20 @@ export default function LocationAdjustments() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<{ marker: maplibregl.Marker; index: number }[]>([]);
+
+  // Estados para o diálogo de confirmação
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [dialogAddressDetails, setDialogAddressDetails] = useState<{
+    index: number;
+    addressName: string;
+    newLat: number;
+    newLng: number;
+    originalLat: number; // Armazenar original para possível reversão
+    originalLng: number; // Armazenar original para possível reversão
+  } | null>(null);
+
+  // Ref para armazenar as coordenadas originais do marcador que está sendo arrastado
+  const draggingMarkerOriginalCoords = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -78,10 +92,29 @@ export default function LocationAdjustments() {
         `))
         .addTo(map.current!);
 
+      // Handle drag start
+      marker.on('dragstart', () => {
+        const currentLngLat = marker.getLngLat();
+        draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
+      });
+
       // Handle drag end
       marker.on('dragend', () => {
-        const lngLat = marker.getLngLat();
-        handleMarkerDragEnd(index, lngLat.lat, lngLat.lng);
+        const newLngLat = marker.getLngLat();
+        const originalCoords = draggingMarkerOriginalCoords.current;
+
+        if (originalCoords) {
+          setDialogAddressDetails({
+            index,
+            addressName: address.correctedAddress || address.originalAddress,
+            newLat: newLngLat.lat,
+            newLng: newLngLat.lng,
+            originalLat: originalCoords.lat,
+            originalLng: originalCoords.lng,
+          });
+          setShowConfirmDialog(true);
+        }
+        draggingMarkerOriginalCoords.current = null; // Reset
       });
 
       markers.current.push({ marker, index });
@@ -101,27 +134,45 @@ export default function LocationAdjustments() {
     };
   }, [addresses.length]);
 
-  const handleMarkerDragEnd = (index: number, lat: number, lng: number) => {
-    setAddresses((prevAddresses) => {
-      const newAddresses = [...prevAddresses];
-      const updatedAddress = {
-        ...newAddresses[index],
-        latitude: lat.toFixed(6),
-        longitude: lng.toFixed(6),
-        status: 'atualizado' as const,
-        note: 'Ajustado no mapa',
-        learned: true,
-      };
-      newAddresses[index] = updatedAddress;
+  const handleConfirmSave = () => {
+    if (dialogAddressDetails) {
+      const { index, newLat, newLng } = dialogAddressDetails;
+      setAddresses((prevAddresses) => {
+        const newAddresses = [...prevAddresses];
+        const updatedAddress = {
+          ...newAddresses[index],
+          latitude: newLat.toFixed(6),
+          longitude: newLng.toFixed(6),
+          status: 'atualizado' as const,
+          note: 'Ajustado no mapa',
+          learned: true,
+        };
+        newAddresses[index] = updatedAddress;
 
-      // Save to learning
-      const learningKey = buildLearningKey(updatedAddress);
-      saveLearnedLocation(learningKey, lat, lng);
+        // Save to learning
+        const learningKey = buildLearningKey(updatedAddress);
+        saveLearnedLocation(learningKey, newLat, newLng);
 
-      return newAddresses;
-    });
-    
-    toast.success("Localização atualizada!");
+        return newAddresses;
+      });
+      toast.success("Localização atualizada e salva para aprendizado!");
+    }
+    setShowConfirmDialog(false);
+    setDialogAddressDetails(null);
+  };
+
+  const handleCancelSave = () => {
+    if (dialogAddressDetails) {
+      const { index, originalLat, originalLng } = dialogAddressDetails;
+      // Reverter a posição do marcador no mapa
+      const markerToRevert = markers.current.find(m => m.index === index)?.marker;
+      if (markerToRevert) {
+        markerToRevert.setLngLat([originalLng, originalLat]);
+      }
+      toast.info("Ajuste de localização cancelado.");
+    }
+    setShowConfirmDialog(false);
+    setDialogAddressDetails(null);
   };
 
   const handleFinishAdjustments = () => {
@@ -174,6 +225,18 @@ export default function LocationAdjustments() {
           </div>
         </Card>
       </div>
+
+      {dialogAddressDetails && (
+        <ConfirmLocationSaveDialog
+          open={showConfirmDialog}
+          onOpenChange={setShowConfirmDialog}
+          onConfirm={handleConfirmSave}
+          onCancel={handleCancelSave}
+          addressName={dialogAddressDetails.addressName}
+          newLat={dialogAddressDetails.newLat}
+          newLng={dialogAddressDetails.newLng}
+        />
+      )}
     </div>
   );
 }
