@@ -184,11 +184,7 @@ export default function LocationAdjustments() {
     const translations: {
       [key: string]: string;
     } = {
-      'originalAddress': 'Endereço Original',
       'correctedAddress': 'Endereço Corrigido',
-      'latitude': 'Latitude',
-      'longitude': 'Longitude',
-      'status': 'Status',
       'Destination Address': 'Endereço do Cliente',
       'Sequence': 'Identificação do Pacote',
       'sequence': 'Identificação do Pacote',
@@ -198,11 +194,8 @@ export default function LocationAdjustments() {
     return translations[col] || col;
   };
 
-  // Filtrar e ordenar colunas para exibição na tabela, condicionalmente para mobile
-  const mobileOnlyColumns = ['correctedAddress', 'status']; // Colunas visíveis no mobile
-  const desktopOnlyColumns = ['latitude', 'longitude']; // Colunas adicionadas para desktop
-
-  const columnsToShow = isMobile ? mobileOnlyColumns : [...mobileOnlyColumns, ...desktopOnlyColumns];
+  // Filtrar e ordenar colunas para exibição na tabela
+  const columnsToShow = ['correctedAddress'];
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
     return (
@@ -269,27 +262,10 @@ export default function LocationAdjustments() {
                         key={colIndex} 
                         className={`text-xs sm:text-sm ${
                           col === 'correctedAddress' ? 'max-w-[100px] truncate sm:max-w-[200px] lg:max-w-[250px]' : // Ajustado max-w para desktop
-                          (col === 'latitude' || col === 'longitude') ? 'w-[60px] sm:w-[80px]' : // Ligeiramente mais largo para desktop
-                          col === 'status' ? 'w-[60px]' : // Largura fixa para status
                           ''
                         }`} 
                       >
-                        {col === 'status' ? (
-                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[10px] font-medium ${ // Menor texto para o badge de status
-                            address.status === 'valid' ? 'bg-green-500/20 text-green-400' :
-                            address.status === 'corrected' ? 'bg-blue-500/20 text-blue-400' :
-                            address.status === 'atualizado' ? 'bg-purple-500/20 text-purple-400' : // Novo estilo para 'atualizado'
-                            'bg-red-500/20 text-red-400'
-                          }`}>
-                            {address.status === 'valid' ? 'Válido' :
-                             address.status === 'corrected' ? 'Corrigido' :
-                             address.status === 'atualizado' ? 'Atualizado' : // Novo texto para 'atualizado'
-                             'Pendente'}
-                             {address.learned && <Sparkles className="ml-0.5 h-2.5 w-2.5 text-yellow-400" />} {/* Menor ícone de sparkles */}
-                          </span>
-                        ) : (
-                          String(address[col as keyof ProcessedAddress] ?? '')
-                        )}
+                        {String(address[col as keyof ProcessedAddress] ?? '')}
                       </TableCell>
                     ))}
                     <TableCell className="text-right w-[80px] sm:w-[120px]"> {/* Largura fixa para ações */}
