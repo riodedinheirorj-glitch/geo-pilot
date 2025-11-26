@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
 import { useIsMobile } from "@/hooks/use-mobile";
 import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'maplibregl/dist/maplibre-gl.css';
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
@@ -70,7 +70,7 @@ export default function LocationAdjustments() {
         draggable: true
       })
         .setLngLat([lng, lat])
-        .setPopup(new maplibregl.Popup().setHTML(`
+        .setPopup(new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
           <div class="p-2 bg-white rounded-md shadow-md">
             <p class="font-semibold text-base text-black">${address.correctedAddress || address.originalAddress}</p>
             <p class="text-sm text-gray-800 mt-1">Arraste para ajustar</p>
