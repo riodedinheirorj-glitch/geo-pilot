@@ -71,9 +71,9 @@ export default function LocationAdjustments() {
       })
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup().setHTML(`
-          <div class="p-2">
-            <p class="font-semibold text-sm">${address.correctedAddress || address.originalAddress}</p>
-            <p class="text-xs text-muted-foreground mt-1">Arraste para ajustar</p>
+          <div class="p-2 bg-white rounded-md shadow-md">
+            <p class="font-semibold text-sm text-gray-900">${address.correctedAddress || address.originalAddress}</p>
+            <p class="text-xs text-gray-600 mt-1">Arraste para ajustar</p>
           </div>
         `))
         .addTo(map.current!);
