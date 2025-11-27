@@ -14,207 +14,16 @@ export type Database = {
   }
   public: {
     Tables: {
-      credit_purchases: {
-        Row: {
-          amount: number
-          approved_at: string | null
-          created_at: string | null
-          credits: number
-          gateway: string | null
-          gateway_charge_id: string | null
-          id: string
-          status: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          approved_at?: string | null
-          created_at?: string | null
-          credits: number
-          gateway?: string | null
-          gateway_charge_id?: string | null
-          id?: string
-          status?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          approved_at?: string | null
-          created_at?: string | null
-          credits?: number
-          gateway?: string | null
-          gateway_charge_id?: string | null
-          id?: string
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      transactions: {
-        Row: {
-          amount: number
-          created_at: string | null
-          description: string | null
-          id: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_credits: {
-        Row: {
-          created_at: string | null
-          credits: number
-          id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          credits?: number
-          id?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          credits?: number
-          id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          id: string;
-          email: string;
-          full_name: string | null;
-          // credits: number; // Removido
-          created_at: string;
-          has_logged_in_before: boolean;
-          last_uploaded_file: string | null;
-          locationiq_api_key: string | null;
-        };
-        Insert: {
-          id: string;
-          email: string;
-          full_name?: string | null;
-          // credits?: number; // Removido
-          created_at?: string;
-          has_logged_in_before?: boolean;
-          last_uploaded_file?: string | null;
-          locationiq_api_key?: string | null;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          full_name?: string | null;
-          // credits?: number; // Removido
-          created_at?: string;
-          has_logged_in_before?: boolean;
-          last_uploaded_file?: string | null;
-          locationiq_api_key?: string | null;
-        };
-      };
-      user_devices: { // NEW TABLE
-        Row: {
-          id: string;
-          user_id: string;
-          device_id: string;
-          user_agent: string | null;
-          last_login_at: string | null;
-          created_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          device_id: string;
-          user_agent?: string | null;
-          last_login_at?: string | null;
-          created_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          device_id?: string;
-          user_agent?: string | null;
-          last_login_at?: string | null;
-          created_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_devices_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      add_credits: {
-        Args: { credits_to_add: number; user_id: string }
-        Returns: number
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      process_download: {
-        Args: { p_file_name: string }
-        Returns: string
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -341,8 +150,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
+    Enums: {},
   },
 } as const

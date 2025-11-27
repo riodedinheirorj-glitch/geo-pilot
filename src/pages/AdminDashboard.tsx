@@ -75,96 +75,31 @@ export default function AdminDashboard() {
       }
 
       // Server-side admin verification using RLS-protected query
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
-
-      if (roleError || !roleData) {
-        toast.error("Acesso negado. Você não é um administrador.");
-        navigate("/");
-        return;
-      }
-
-      setIsAdmin(true);
-      setAdminId(user.id);
-
-      // Load user profiles
-      const { data: profiles, error: profilesError } = await getProfiles();
-
-      if (profilesError) throw profilesError;
-
-      setTotalUsers(profiles?.length || 0);
-
-      // Fetch all downloads and create a map for counts
-      const { data: allDownloads, error: downloadsError } = await supabase
-        .from('downloads')
-        .select('user_id') as any;
-
-      if (downloadsError) throw downloadsError;
-
-      const downloadCounts = new Map<string, number>();
-      allDownloads?.forEach((download: any) => {
-        if (download.user_id) {
-          downloadCounts.set(download.user_id, (downloadCounts.get(download.user_id) || 0) + 1);
-        }
-      });
-
-      // Combine profiles with download counts
-      const stats = profiles?.map((profile: any) => ({
-        id: profile.id,
-        email: profile.email,
-        full_name: profile.full_name,
-        credits: profile.credits || 0,
-        download_count: downloadCounts.get(profile.id) || 0,
-      })) || [];
-
-      setUserStats(stats);
-
-      // Load pending purchases
-      const { data: purchases } = await getPendingPurchases();
+      // TEMPORARIAMENTE DESABILITADO - tabela user_roles não existe
+      // const { data: roleData, error: roleError } = await supabase
+      //   .from('user_roles')
+      //   .select('role')
+      //   .eq('user_id', user.id)
+      //   .eq('role', 'admin')
+      //   .single();
+      // 
+      // if (roleError || !roleData) {
+      //   toast.error("Acesso negado. Você não é um administrador.");
+      //   navigate("/");
+      //   return;
+      // }
       
-      // Delete pending purchases older than 10 minutes
-      if (purchases && purchases.length > 0) {
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-        const expiredPurchaseIds = purchases
-          .filter(p => new Date(p.created_at) < tenMinutesAgo)
-          .map(p => p.id);
-        
-        if (expiredPurchaseIds.length > 0) {
-          await supabase
-            .from('credit_purchases')
-            .delete()
-            .in('id', expiredPurchaseIds);
-          
-          // Filter out expired purchases from the list
-          const activePurchases = purchases.filter(p => !expiredPurchaseIds.includes(p.id));
-          setPendingPurchases(activePurchases);
-        } else {
-          setPendingPurchases(purchases);
-        }
-      } else {
-        setPendingPurchases([]);
-      }
+      // Temporariamente desabilitar verificação de admin
+      toast.error("Funcionalidade de admin temporariamente desabilitada.");
+      navigate("/");
+      return;
 
-      // Load transactions
-      const { data: trans } = await getTransactions();
-      setTransactions(trans || []);
-
-      // Calculate total revenue from approved purchases
-      const { data: approvedPurchases } = await supabase
-        .from('credit_purchases')
-        .select('amount')
-        .eq('status', 'approved') as any;
-
-      if (approvedPurchases && approvedPurchases.length > 0) {
-        const grossRevenue = approvedPurchases.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
-        const fees = approvedPurchases.length * 0.80; // R$ 0,80 por transação
-        const netRevenue = grossRevenue - fees;
-        setTotalRevenue(netRevenue);
-      }
+      // if (approvedPurchases && approvedPurchases.length > 0) {
+      //   const grossRevenue = approvedPurchases.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+      //   const fees = approvedPurchases.length * 0.80; // R$ 0,80 por transação
+      //   const netRevenue = grossRevenue - fees;
+      //   setTotalRevenue(netRevenue);
+      // }
     } catch (error: any) {
       toast.error("Erro ao carregar dados do dashboard");
       console.error(error);
