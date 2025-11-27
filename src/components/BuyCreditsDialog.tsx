@@ -111,21 +111,20 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
       });
 
       // Criar pedido de compra de crédito no Supabase com o transactionId
-      // TEMPORARIAMENTE DESABILITADO - tabela credit_purchases não existe
-      // const { data: purchaseData, error: purchaseError} = await supabase
-      //   .from("credit_purchases")
-      //   .insert({
-      //     user_id: userId,
-      //     credits: selectedPackage.credits,
-      //     amount: selectedPackage.price,
-      //     gateway_charge_id: pixResponse.transactionId
-      //   } as any)
-      //   .select()
-      //   .single();
-      // 
-      // if (purchaseError) {
-      //   throw new Error(purchaseError.message || "Erro ao criar pedido de compra.");
-      // }
+      const { data: purchaseData, error: purchaseError } = await supabase
+        .from("credit_purchases")
+        .insert({
+          user_id: userId,
+          credits: selectedPackage.credits,
+          amount: selectedPackage.price,
+          gateway_charge_id: pixResponse.transactionId
+        } as any)
+        .select()
+        .single();
+
+      if (purchaseError) {
+        throw new Error(purchaseError.message || "Erro ao criar pedido de compra.");
+      }
 
       setQrCodeImage(pixResponse.qrCodeImage);
       setPixCopyPasteCode(pixResponse.pixCopyPasteCode);
