@@ -111,7 +111,11 @@ serve(async (req) => {
     }
     console.log("Admin user created in auth with ID:", authData.user.id);
 
-    // Add admin role
+    // Wait for trigger to complete (profile, user role, credits creation)
+    console.log("Waiting for auth trigger to complete...");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Add admin role (in addition to user role created by trigger)
     console.log("Attempting to add 'admin' role to the new user...");
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
@@ -120,9 +124,12 @@ serve(async (req) => {
         role: "admin",
       });
 
-    if (roleError && !roleError.message.includes("duplicate")) { // Check for duplicate error specifically
+    if (roleError) {
       console.error("Error adding admin role:", roleError.message);
-      throw roleError;
+      // If role already exists, that's okay
+      if (!roleError.message.includes("duplicate") && !roleError.code?.includes("23505")) {
+        throw roleError;
+      }
     }
     console.log("Admin role added successfully for user:", authData.user.id);
 
