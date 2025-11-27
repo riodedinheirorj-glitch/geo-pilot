@@ -40,6 +40,7 @@ export default function LocationAdjustments() {
 
   // Ref para armazenar as coordenadas originais do marcador que está sendo arrastado
   const draggingMarkerOriginalCoords = useRef<{ lat: number; lng: number } | null>(null);
+  const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null); // Novo estado para o marcador selecionado
 
   useEffect(() => {
     if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -81,16 +82,22 @@ export default function LocationAdjustments() {
 
       const marker = new maplibregl.Marker({
         color: markerColor,
-        draggable: true
+        draggable: false // Pins não arrastáveis por padrão
       })
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
           <div class="p-2 bg-white rounded-md shadow-md">
             <p class="font-semibold text-base text-black">${address.correctedAddress || address.originalAddress}</p>
-            <p class="text-sm text-gray-800 mt-1">Arraste para ajustar</p>
+            <p class="text-sm text-gray-800 mt-1">Clique para selecionar e arrastar</p>
           </div>
         `))
         .addTo(map.current!);
+
+      // Handle click to select marker
+      marker.getElement().addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent map click event from firing
+        handleMarkerClick(index);
+      });
 
       // Handle drag start
       marker.on('dragstart', () => {
@@ -126,6 +133,9 @@ export default function LocationAdjustments() {
       map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
     }
 
+    // Handle map click to deselect marker
+    map.current.on('click', handleMapClick);
+
     return () => {
       markers.current.forEach(({ marker }) => marker.remove());
       markers.current = [];
@@ -133,6 +143,37 @@ export default function LocationAdjustments() {
       map.current = null;
     };
   }, [addresses.length]);
+
+  const handleMarkerClick = (clickedIndex: number) => {
+    // Deselect previous marker if any
+    if (selectedMarkerIndex !== null && selectedMarkerIndex !== clickedIndex) {
+      const prevMarker = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
+      if (prevMarker) {
+        prevMarker.setDraggable(false);
+        prevMarker.getPopup()?.remove(); // Close popup
+      }
+    }
+
+    const currentMarker = markers.current.find(m => m.index === clickedIndex)?.marker;
+    if (currentMarker) {
+      currentMarker.setDraggable(true);
+      setSelectedMarkerIndex(clickedIndex);
+      currentMarker.getPopup()?.addTo(map.current!); // Open popup for the selected marker
+      toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
+    }
+  };
+
+  const handleMapClick = () => {
+    if (selectedMarkerIndex !== null) {
+      const prevMarker = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
+      if (prevMarker) {
+        prevMarker.setDraggable(false);
+        prevMarker.getPopup()?.remove(); // Close popup
+      }
+      setSelectedMarkerIndex(null);
+      toast.info("Seleção de endereço cancelada.");
+    }
+  };
 
   const handleConfirmSave = () => {
     if (dialogAddressDetails) {
@@ -159,6 +200,15 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
+    // Deselect the marker after action
+    if (selectedMarkerIndex !== null) {
+      const markerToDeselect = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
+      if (markerToDeselect) {
+        markerToDeselect.setDraggable(false);
+        markerToDeselect.getPopup()?.remove();
+      }
+      setSelectedMarkerIndex(null);
+    }
   };
 
   const handleCancelSave = () => {
@@ -173,6 +223,15 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
+    // Deselect the marker after action
+    if (selectedMarkerIndex !== null) {
+      const markerToDeselect = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
+      if (markerToDeselect) {
+        markerToDeselect.setDraggable(false);
+        markerToDeselect.getPopup()?.remove();
+      }
+      setSelectedMarkerIndex(null);
+    }
   };
 
   const handleFinishAdjustments = () => {
@@ -215,7 +274,7 @@ export default function LocationAdjustments() {
               Endereços para Ajuste
             </h3>
             <p className="text-sm text-muted-foreground text-center mt-2">
-              Arraste os pins no mapa para ajustar as coordenadas
+              Clique em um pin para selecioná-lo e arrastar.
             </p>
           </div>
 
