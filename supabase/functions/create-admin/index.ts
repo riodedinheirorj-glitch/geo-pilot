@@ -82,8 +82,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           message: "Admin user already exists",
-          email: "admin@deliveryflow.com",
-          password: "admin@123",
+          email: "admin@rotasmart.com",
+          password: "RotaSmart@123@",
           note: "Use these credentials to login"
         }),
         { 
@@ -97,8 +97,8 @@ serve(async (req) => {
     // Create admin user
     console.log("Attempting to create admin user in Supabase Auth...");
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: "admin@deliveryflow.com",
-      password: "admin@123",
+      email: "admin@rotasmart.com",
+      password: "RotaSmart@123@",
       email_confirm: true,
       user_metadata: {
         full_name: "Administrador",
@@ -138,8 +138,8 @@ serve(async (req) => {
         success: true,
         message: "Admin user created successfully",
         credentials: {
-          email: "admin@deliveryflow.com",
-          password: "admin@123"
+          email: "admin@rotasmart.com",
+          password: "RotaSmart@123@"
         },
         warning: "⚠️ CHANGE THIS PASSWORD IMMEDIATELY IN PRODUCTION!"
       }),
