@@ -96,7 +96,7 @@ export default function LocationAdjustments() {
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://tiles.stadiamaps.com/styles/osm_bright.json',
+      style: 'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json',
       center: [-46.633309, -23.55052],
       zoom: 13
     });
