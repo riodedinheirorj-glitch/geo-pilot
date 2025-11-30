@@ -1,12 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
+
 const LOCATIONIQ_API_URL = "https://us1.locationiq.com/v1/search.php";
-const RATE_LIMIT_DELAY = 500; // 0.5 seconds to respect 2 requests per second limit
-const DEFAULT_COUNTRY_CODE = "Brazil"; // For LocationIQ, use full country name
-const DISTANCE_THRESHOLD_METERS = 50; // If coordinates differ by more than 50 meters, use geocoded.
+const LOCATIONIQ_REVERSE_URL = "https://us1.locationiq.com/v1/reverse.php";
+const NOMINATIM_API_URL = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
+const RATE_LIMIT_DELAY = 1000; // 1 second for Nominatim rate limit
+const DEFAULT_COUNTRY_CODE = "Brazil";
+const DISTANCE_THRESHOLD_METERS = 100; // Increased threshold for better flexibility
+const HIGH_CONFIDENCE_THRESHOLD = 0.8; // 80% confidence score
 
 // Helpers
 function sleep(ms: number) {
@@ -54,59 +60,207 @@ function buildLocationIQQueryParam(row: any) {
   return parts.join(", ");
 }
 
-function addressMatchesExpected(locationiqAddress: any, expected: any) {
-  if (!locationiqAddress) return false;
-  const gotCity = locationiqAddress.city || locationiqAddress.town || locationiqAddress.village || "";
-  const gotCounty = locationiqAddress.county || "";
-  const gotSuburb = locationiqAddress.suburb || locationiqAddress.neighbourhood || "";
-  const gotState = locationiqAddress.state || "";
+// Calculate confidence score for address matching
+function calculateAddressConfidence(geocodedAddress: any, expected: any): number {
+  if (!geocodedAddress) return 0;
+  
+  const gotCity = geocodedAddress.city || geocodedAddress.town || geocodedAddress.village || "";
+  const gotCounty = geocodedAddress.county || "";
+  const gotSuburb = geocodedAddress.suburb || geocodedAddress.neighbourhood || "";
+  const gotState = geocodedAddress.state || "";
+  const gotRoad = geocodedAddress.road || "";
+  const gotHouseNumber = geocodedAddress.house_number || "";
 
   const expCity = normalizeText(expected.cidade || "");
   const expBairro = normalizeText(expected.bairro || "");
   const expState = normalizeText(expected.estado || "");
+  const expRawAddress = normalizeText(expected.rawAddress || "");
 
   const gCity = normalizeText(gotCity || gotCounty);
   const gBairro = normalizeText(gotSuburb || "");
   const gState = normalizeText(gotState || "");
+  const gRoad = normalizeText(gotRoad || "");
+  const gHouseNumber = normalizeText(gotHouseNumber || "");
 
-  // Make matching flexible: if expected field is empty, consider it a match
-  const cityMatches = !expCity || (gCity && (gCity.includes(expCity) || expCity.includes(gCity)));
-  const stateMatches = !expState || (gState && (gState.includes(expState) || expState.includes(gState)));
-  const bairroMatches = !expBairro || (gBairro && (gBairro.includes(expBairro) || expBairro.includes(gBairro)));
+  let score = 0;
+  let maxScore = 0;
+
+  // City matching (weight: 30%)
+  if (expCity) {
+    maxScore += 0.3;
+    if (gCity && (gCity.includes(expCity) || expCity.includes(gCity))) {
+      score += 0.3;
+    }
+  }
+
+  // State matching (weight: 20%)
+  if (expState) {
+    maxScore += 0.2;
+    if (gState && (gState.includes(expState) || expState.includes(gState))) {
+      score += 0.2;
+    }
+  }
+
+  // Neighborhood matching (weight: 20%)
+  if (expBairro) {
+    maxScore += 0.2;
+    if (gBairro && (gBairro.includes(expBairro) || expBairro.includes(gBairro))) {
+      score += 0.2;
+    }
+  }
+
+  // Street matching (weight: 20%)
+  if (expRawAddress) {
+    maxScore += 0.2;
+    if (gRoad && expRawAddress.includes(gRoad)) {
+      score += 0.15;
+    }
+    if (gHouseNumber && expRawAddress.includes(gHouseNumber)) {
+      score += 0.05;
+    }
+  }
+
+  // House number presence (weight: 10%)
+  if (gHouseNumber) {
+    maxScore += 0.1;
+    if (expRawAddress.match(/\d+/)) {
+      score += 0.1;
+    }
+  }
+
+  const finalScore = maxScore > 0 ? score / maxScore : 0;
   
-  console.log(`  Matching details:`);
-  console.log(`    Expected City: '${expCity}', Got City: '${gCity}', Match: ${cityMatches}`);
-  console.log(`    Expected Bairro: '${expBairro}', Got Bairro: '${gBairro}', Match: ${bairroMatches}`);
-  console.log(`    Expected State: '${expState}', Got State: '${gState}', Match: ${stateMatches}`);
+  console.log(`  Confidence Score: ${(finalScore * 100).toFixed(1)}%`);
+  console.log(`    City: '${expCity}' vs '${gCity}'`);
+  console.log(`    Bairro: '${expBairro}' vs '${gBairro}'`);
+  console.log(`    State: '${expState}' vs '${gState}'`);
+  console.log(`    Road: '${gRoad}', House: '${gHouseNumber}'`);
 
-  return cityMatches && stateMatches && bairroMatches;
+  return finalScore;
 }
 
-async function locationiqSearch(query: string) {
-  const LOCATIONIQ_API_KEY = Deno.env.get('LOCATIONIQ_API_KEY');
-  if (!LOCATIONIQ_API_KEY) {
-    throw new Error('LOCATIONIQ_API_KEY not configured in environment variables.');
-  }
-  const params = new URLSearchParams({
-    key: LOCATIONIQ_API_KEY,
-    q: query,
-    format: "json",
-    addressdetails: "1",
-    limit: "1",
-    country: DEFAULT_COUNTRY_CODE
-  });
-  const url = `${LOCATIONIQ_API_URL}?${params.toString()}`;
-  const resp = await fetch(url, {
-    headers: {
-      "User-Agent": "RotaSmartApp/1.0 (contact@rotasmart.com)"
+// Find best matching result from multiple geocoding results
+function findBestMatch(results: any[], expected: any): { result: any, confidence: number } | null {
+  if (!results || results.length === 0) return null;
+  
+  let bestMatch = null;
+  let bestConfidence = 0;
+  
+  for (const result of results) {
+    const confidence = calculateAddressConfidence(result.address, expected);
+    if (confidence > bestConfidence) {
+      bestConfidence = confidence;
+      bestMatch = result;
     }
-  });
-  if (!resp.ok) {
-    console.error("LocationIQ API error:", resp.status, resp.statusText, url);
-    throw new Error("LocationIQ returned " + resp.status);
   }
-  const json = await resp.json();
-  return json && json.length ? json[0] : null;
+  
+  return bestMatch && bestConfidence > 0.3 ? { result: bestMatch, confidence: bestConfidence } : null;
+}
+
+// Forward geocoding with fallback to Nominatim
+async function forwardGeocode(query: string) {
+  const LOCATIONIQ_API_KEY = Deno.env.get('LOCATIONIQ_API_KEY');
+  
+  // Try LocationIQ first if API key is available
+  if (LOCATIONIQ_API_KEY) {
+    try {
+      const params = new URLSearchParams({
+        key: LOCATIONIQ_API_KEY,
+        q: query,
+        format: "json",
+        addressdetails: "1",
+        limit: "3", // Get top 3 results for better matching
+        country: DEFAULT_COUNTRY_CODE
+      });
+      const url = `${LOCATIONIQ_API_URL}?${params.toString()}`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "RotaSmartApp/1.0 (contact@rotasmart.com)" }
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        await sleep(RATE_LIMIT_DELAY / 2); // Faster rate for LocationIQ
+        return json && json.length ? json : null;
+      }
+    } catch (e) {
+      console.warn(`LocationIQ forward geocoding failed: ${e}`);
+    }
+  }
+  
+  // Fallback to Nominatim (free, no API key required)
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      format: "json",
+      addressdetails: "1",
+      limit: "3",
+      countrycodes: "br"
+    });
+    const url = `${NOMINATIM_API_URL}?${params.toString()}`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "RotaSmartApp/1.0 (contact@rotasmart.com)" }
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      await sleep(RATE_LIMIT_DELAY); // Respect Nominatim rate limit
+      return json && json.length ? json : null;
+    }
+  } catch (e) {
+    console.warn(`Nominatim forward geocoding failed: ${e}`);
+  }
+  
+  return null;
+}
+
+// Reverse geocoding to validate coordinates
+async function reverseGeocode(lat: number, lon: number) {
+  const LOCATIONIQ_API_KEY = Deno.env.get('LOCATIONIQ_API_KEY');
+  
+  // Try LocationIQ first if API key is available
+  if (LOCATIONIQ_API_KEY) {
+    try {
+      const params = new URLSearchParams({
+        key: LOCATIONIQ_API_KEY,
+        lat: lat.toString(),
+        lon: lon.toString(),
+        format: "json",
+        addressdetails: "1"
+      });
+      const url = `${LOCATIONIQ_REVERSE_URL}?${params.toString()}`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "RotaSmartApp/1.0 (contact@rotasmart.com)" }
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        await sleep(RATE_LIMIT_DELAY / 2);
+        return json;
+      }
+    } catch (e) {
+      console.warn(`LocationIQ reverse geocoding failed: ${e}`);
+    }
+  }
+  
+  // Fallback to Nominatim
+  try {
+    const params = new URLSearchParams({
+      lat: lat.toString(),
+      lon: lon.toString(),
+      format: "json",
+      addressdetails: "1"
+    });
+    const url = `${NOMINATIM_REVERSE_URL}?${params.toString()}`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "RotaSmartApp/1.0 (contact@rotasmart.com)" }
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      await sleep(RATE_LIMIT_DELAY);
+      return json;
+    }
+  } catch (e) {
+    console.warn(`Nominatim reverse geocoding failed: ${e}`);
+  }
+  
+  return null;
 }
 
 function parseCoordinate(coordString: string | undefined | null): number | undefined {
@@ -199,43 +353,102 @@ serve(async (req)=>{
         console.log(`  Detected as 'quadra e lote'. Status: ${status}`);
         // Skip further geocoding for these, they need manual adjustment
       } else {
-        // Existing logic for geocoding
+        // Enhanced geocoding logic with cross-validation
         if (row.rawAddress) {
           const fullQuery = buildLocationIQQueryParam(row);
-          console.log(`  Full query for LocationIQ: '${fullQuery}'`);
+          console.log(`  Full query for geocoding: '${fullQuery}'`);
+          
           try {
-            searchUsed = "locationiq:" + fullQuery;
-            const locationIqResult = await locationiqSearch(fullQuery);
-            await sleep(RATE_LIMIT_DELAY);
-
-            if (locationIqResult) {
-              const addr = locationIqResult.address || {};
-              console.log(`  LocationIQ Result: Lat=${locationIqResult.lat}, Lon=${locationIqResult.lon}, DisplayName='${locationIqResult.display_name}'`);
-              console.log(`  LocationIQ Address Details: ${JSON.stringify(addr)}`);
-
-              const matches = addressMatchesExpected(addr, {
+            searchUsed = "geocode:" + fullQuery;
+            
+            // Step 1: Forward geocoding
+            const forwardResults = await forwardGeocode(fullQuery);
+            
+            if (forwardResults && forwardResults.length > 0) {
+              console.log(`  Forward geocoding returned ${forwardResults.length} results`);
+              
+              // Find best matching result
+              const bestMatch = findBestMatch(forwardResults, {
+                rawAddress: row.rawAddress,
                 bairro: row.bairro,
                 cidade: row.cidade,
                 estado: row.estado
               });
-
-              if (matches) {
-                locationIqLat = parseCoordinate(locationIqResult.lat);
-                locationIqLon = parseCoordinate(locationIqResult.lon);
-                locationIqDisplayName = locationIqResult.display_name;
-                locationIqMatch = true;
-                console.log(`  LocationIQ matched expected criteria.`);
+              
+              if (bestMatch) {
+                const { result, confidence } = bestMatch;
+                console.log(`  Best match confidence: ${(confidence * 100).toFixed(1)}%`);
+                console.log(`  Best match: Lat=${result.lat}, Lon=${result.lon}`);
+                
+                locationIqLat = parseCoordinate(result.lat);
+                locationIqLon = parseCoordinate(result.lon);
+                locationIqDisplayName = result.display_name;
+                
+                // Step 2: Cross-validate with original coordinates if available
+                if (hasOriginalCoords) {
+                  console.log(`  Cross-validating with original coordinates...`);
+                  
+                  // Reverse geocode original coordinates
+                  const reverseResult = await reverseGeocode(originalLatNum!, originalLonNum!);
+                  
+                  if (reverseResult && reverseResult.address) {
+                    const reverseConfidence = calculateAddressConfidence(reverseResult.address, {
+                      rawAddress: row.rawAddress,
+                      bairro: row.bairro,
+                      cidade: row.cidade,
+                      estado: row.estado
+                    });
+                    
+                    console.log(`  Reverse geocoding confidence: ${(reverseConfidence * 100).toFixed(1)}%`);
+                    
+                    // If both forward and reverse have high confidence, use the one closer to original
+                    if (reverseConfidence >= HIGH_CONFIDENCE_THRESHOLD && confidence >= HIGH_CONFIDENCE_THRESHOLD) {
+                      locationIqMatch = true;
+                      note = (note ? note + ";" : "") + `confianca-alta-forward:${(confidence * 100).toFixed(0)}%-reverse:${(reverseConfidence * 100).toFixed(0)}%`;
+                    } else if (reverseConfidence >= HIGH_CONFIDENCE_THRESHOLD) {
+                      // Original coordinates are good
+                      locationIqMatch = true;
+                      locationIqLat = originalLatNum;
+                      locationIqLon = originalLonNum;
+                      note = (note ? note + ";" : "") + `coordenadas-originais-validadas:${(reverseConfidence * 100).toFixed(0)}%`;
+                    } else if (confidence >= HIGH_CONFIDENCE_THRESHOLD) {
+                      // Forward geocoding is better
+                      locationIqMatch = true;
+                      note = (note ? note + ";" : "") + `geocodificacao-corrigida:${(confidence * 100).toFixed(0)}%`;
+                    } else {
+                      // Medium confidence, needs review
+                      locationIqMatch = true;
+                      note = (note ? note + ";" : "") + `confianca-media-revisao-sugerida:${(Math.max(confidence, reverseConfidence) * 100).toFixed(0)}%`;
+                    }
+                  } else {
+                    // Reverse geocoding failed, use forward result if confidence is good
+                    if (confidence >= 0.5) {
+                      locationIqMatch = true;
+                      note = (note ? note + ";" : "") + `geocodificado:${(confidence * 100).toFixed(0)}%`;
+                    } else {
+                      note = (note ? note + ";" : "") + `confianca-baixa-revisao-necessaria:${(confidence * 100).toFixed(0)}%`;
+                    }
+                  }
+                } else {
+                  // No original coordinates, just use forward result if confidence is acceptable
+                  if (confidence >= 0.5) {
+                    locationIqMatch = true;
+                    note = (note ? note + ";" : "") + `geocodificado:${(confidence * 100).toFixed(0)}%`;
+                  } else {
+                    note = (note ? note + ";" : "") + `confianca-baixa:${(confidence * 100).toFixed(0)}%`;
+                  }
+                }
               } else {
-                note = (note ? note + ";" : "") + "resultado-locationiq-nao-coincide-com-cidade-bairro";
-                console.log(`  LocationIQ did NOT match expected criteria. Note: ${note}`);
+                note = (note ? note + ";" : "") + "nenhum-resultado-compativel";
+                console.log(`  No results matched expected criteria`);
               }
             } else {
-              note = (note ? note + ";" : "") + "nao-encontrado-locationiq";
-              console.log(`  LocationIQ found no results. Note: ${note}`);
+              note = (note ? note + ";" : "") + "endereco-nao-encontrado";
+              console.log(`  No geocoding results found`);
             }
           } catch (e) {
-            note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
-            console.warn(`  Error during LocationIQ request: ${e}`);
+            note = (note ? note + ";" : "") + "erro-geocodificacao";
+            console.warn(`  Error during geocoding: ${e}`);
           }
         }
 
