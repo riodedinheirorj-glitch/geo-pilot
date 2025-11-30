@@ -148,15 +148,22 @@ export default function LocationAdjustments() {
         popup.setHTML('<div class="p-2 text-black animate-pulse">Buscando endereço...</div>');
 
         const reverseGeocodeResult = await reverseGeocodeAddress(newLngLat.lat, newLngLat.lng);
-        const foundAddressName = reverseGeocodeResult?.display_name || (addresses[index].correctedAddress || addresses[index].originalAddress);
+        const originalAddressName = addresses[index].correctedAddress || addresses[index].originalAddress;
+        const foundAddressName = reverseGeocodeResult?.display_name || originalAddressName;
 
-        const popupAddress = reverseGeocodeResult?.display_name 
-          ? `<p class="font-semibold text-base text-black">${reverseGeocodeResult.display_name}</p>`
-          : `<p class="font-semibold text-base text-orange-600">Não foi possível identificar o endereço. A posição será salva.</p>`;
+        let popupContent;
+        if (reverseGeocodeResult?.display_name) {
+          popupContent = `<p class="font-semibold text-base text-black">${reverseGeocodeResult.display_name}</p>`;
+        } else {
+          popupContent = `
+            <p class="font-semibold text-base text-orange-600">Não foi possível identificar o endereço.</p>
+            <p class="text-sm text-gray-800 mt-1">A posição será salva para: "${originalAddressName}"</p>
+          `;
+        }
 
         popup.setHTML(`
           <div class="p-2 bg-white rounded-md shadow-md">
-            ${popupAddress}
+            ${popupContent}
             <p class="text-sm text-gray-800 mt-1">Confirme para salvar esta posição.</p>
           </div>
         `);
