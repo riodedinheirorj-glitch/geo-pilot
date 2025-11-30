@@ -145,20 +145,29 @@ export default function LocationAdjustments() {
   }, [addresses.length]);
 
   const handleMarkerClick = (clickedIndex: number) => {
-    // Deselect previous marker if any
+    const currentMarker = markers.current.find(m => m.index === clickedIndex)?.marker;
+    if (!currentMarker) return;
+
+    // If a different marker is already selected, show a message and do nothing.
     if (selectedMarkerIndex !== null && selectedMarkerIndex !== clickedIndex) {
-      const prevMarker = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
-      if (prevMarker) {
-        prevMarker.setDraggable(false);
-        prevMarker.getPopup()?.remove(); // Close popup
-      }
+      toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
+      return;
     }
 
-    const currentMarker = markers.current.find(m => m.index === clickedIndex)?.marker;
-    if (currentMarker) {
+    // If clicking the currently selected marker, deselect it.
+    if (selectedMarkerIndex === clickedIndex) {
+      currentMarker.setDraggable(false);
+      currentMarker.getPopup()?.remove();
+      setSelectedMarkerIndex(null);
+      toast.info("Seleção de endereço cancelada.");
+      return;
+    }
+
+    // If no marker is selected, select this one.
+    if (selectedMarkerIndex === null) {
       currentMarker.setDraggable(true);
       setSelectedMarkerIndex(clickedIndex);
-      currentMarker.getPopup()?.addTo(map.current!); // Open popup for the selected marker
+      currentMarker.getPopup()?.addTo(map.current!);
       toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
     }
   };
