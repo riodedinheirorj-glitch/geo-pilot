@@ -88,22 +88,35 @@ class SyncManager {
    * Verifica conexão real (não apenas navigator.onLine)
    */
   private async checkConnection(): Promise<void> {
+    // Primeiro verifica o navigator.onLine
+    if (!navigator.onLine) {
+      if (this.isOnlineState) {
+        this.handleOffline();
+      }
+      return;
+    }
+
+    // Se navigator diz que está online, faz verificação adicional
+    // usando o próprio endpoint do Supabase (sem problemas de CORS)
     try {
-      const response = await fetch('https://www.google.com/favicon.ico', {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: 'HEAD',
-        cache: 'no-cache',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
       });
       
       const wasOffline = !this.isOnlineState;
-      this.isOnlineState = response.ok;
+      this.isOnlineState = response.ok || response.status === 400; // 400 também indica que chegou
 
       if (wasOffline && this.isOnlineState) {
         await this.handleOnline();
-      } else if (!wasOffline && !this.isOnlineState) {
-        this.handleOffline();
       }
     } catch {
-      if (this.isOnlineState) {
+      // Apenas marca offline se navigator também indicar offline
+      // Isso evita falsos positivos por erros temporários
+      if (!navigator.onLine && this.isOnlineState) {
         this.handleOffline();
       }
     }
