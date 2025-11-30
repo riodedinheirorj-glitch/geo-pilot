@@ -139,13 +139,16 @@ export default function LocationAdjustments() {
       marker.on('dragstart', () => {
         const currentLngLat = marker.getLngLat();
         draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
-        popup.setHTML('<div class="p-2 text-black">Arraste para a nova posição...</div>');
+        popup.setHTML('<div class="p-2 text-black">Solte o pino na posição correta.</div>');
       });
 
       const throttledUpdate = throttle(async (lngLat: maplibregl.LngLat) => {
+        popup.setHTML('<div class="p-2 text-gray-600 animate-pulse">Buscando endereço...</div>');
         const result = await reverseGeocodeAddress(lngLat.lat, lngLat.lng);
         if (result?.display_name) {
           popup.setHTML(`<div class="p-2 text-black">${result.display_name}</div>`);
+        } else {
+          popup.setHTML(`<div class="p-2 text-orange-600">Endereço não encontrado.</div>`);
         }
       }, 750);
 
