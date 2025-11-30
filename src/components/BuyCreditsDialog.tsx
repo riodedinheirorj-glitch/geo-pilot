@@ -248,7 +248,7 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
                   id="phone"
                   value={formatPhoneNumber(pixDetails.phone)}
                   onChange={(e) => {
-                    const onlyNumbers = e.target.value.replace(/\D/g, '');
+                    const onlyNumbers = e.target.value.replace(/\D/g, '').substring(0, 11);
                     setPixDetails(prev => ({ ...prev, phone: onlyNumbers }));
                   }}
                   placeholder="(XX) XXXXX-XXXX"
