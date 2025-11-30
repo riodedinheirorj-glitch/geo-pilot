@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
 import maplibregl from 'maplibre-gl';
 import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog";
+import { throttle } from "@/lib/utils";
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
@@ -139,6 +140,19 @@ export default function LocationAdjustments() {
         const currentLngLat = marker.getLngLat();
         draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
         popup.setHTML('<div class="p-2 text-black">Arraste para a nova posição...</div>');
+      });
+
+      const throttledUpdate = throttle(async (lngLat: maplibregl.LngLat) => {
+        popup.setHTML('<div class="p-2 text-black animate-pulse">Buscando endereço...</div>');
+        const result = await reverseGeocodeAddress(lngLat.lat, lngLat.lng);
+        if (result?.display_name) {
+          popup.setHTML(`<div class="p-2 text-black">${result.display_name}</div>`);
+        }
+      }, 750);
+
+      marker.on('drag', () => {
+        const lngLat = marker.getLngLat();
+        throttledUpdate(lngLat);
       });
 
       marker.on('dragend', async () => {

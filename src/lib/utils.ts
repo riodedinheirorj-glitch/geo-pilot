@@ -58,3 +58,23 @@ export function formatCpf(value: string): string {
   }
   return value;
 }
+
+/**
+ * Creates a throttled function that only invokes `func` at most once per every `limit` milliseconds.
+ * @param func The function to throttle.
+ * @param limit The a number of milliseconds to throttle invocations to.
+ * @returns The new throttled function.
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+  return function(this: any, ...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
