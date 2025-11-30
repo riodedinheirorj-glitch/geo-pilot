@@ -27,10 +27,10 @@ const CREDIT_PACKAGES = [
 // Zod schema para os novos campos de entrada
 const pixDetailsSchema = z.object({
   name: z.string().trim().min(3, "Nome completo é obrigatório").max(100, "Nome muito longo"),
-  // Atualizado o regex para o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
-  phone: z.string().trim().regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, "Telefone inválido (ex: (XX) XXXXX-XXXX)").min(14, "Telefone inválido").max(15, "Telefone inválido"),
+  // Validar apenas números (10 ou 11 dígitos)
+  phone: z.string().trim().regex(/^\d{10,11}$/, "Telefone inválido (ex: (XX) XXXXX-XXXX)"),
   email: z.string().trim().email("Email inválido").max(255, "Email muito longo"),
-  cpf: z.string().trim().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, "CPF inválido (ex: 000.000.000-00)").min(14, "CPF inválido").max(14, "CPF inválido"),
+  cpf: z.string().trim().regex(/^\d{11}$/, "CPF inválido (ex: 000.000.000-00)"),
 });
 
 type PixDetails = z.infer<typeof pixDetailsSchema>;
@@ -246,9 +246,13 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
                 <Label htmlFor="phone">Telefone (WhatsApp)</Label>
                 <Input
                   id="phone"
-                  value={formatPhoneNumber(pixDetails.phone)} // Aplicar a formatação aqui
-                  onChange={(e) => setPixDetails(prev => ({ ...prev, phone: e.target.value }))}
+                  value={formatPhoneNumber(pixDetails.phone)}
+                  onChange={(e) => {
+                    const onlyNumbers = e.target.value.replace(/\D/g, '');
+                    setPixDetails(prev => ({ ...prev, phone: onlyNumbers }));
+                  }}
                   placeholder="(XX) XXXXX-XXXX"
+                  maxLength={15}
                 />
               </div>
               <div className="space-y-2">
@@ -266,10 +270,13 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
                 <Label htmlFor="cpf">CPF</Label>
                 <Input
                   id="cpf"
-                  value={formatCpf(pixDetails.cpf)} // Aplicar a formatação aqui
-                  onChange={(e) => setPixDetails(prev => ({ ...prev, cpf: e.target.value }))}
+                  value={formatCpf(pixDetails.cpf)}
+                  onChange={(e) => {
+                    const onlyNumbers = e.target.value.replace(/\D/g, '');
+                    setPixDetails(prev => ({ ...prev, cpf: onlyNumbers }));
+                  }}
                   placeholder="000.000.000-00"
-                  maxLength={14} // Limitar o comprimento máximo do campo formatado
+                  maxLength={14}
                 />
               </div>
             </div>
