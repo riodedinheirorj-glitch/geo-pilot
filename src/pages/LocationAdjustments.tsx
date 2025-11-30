@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Edit, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
+import { MapPin, ArrowLeft, CheckCircle2, Locate, Loader2 } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
 import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
@@ -24,6 +24,7 @@ export default function LocationAdjustments() {
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<{ marker: maplibregl.Marker; index: number }[]>([]);
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogAddressDetails, setDialogAddressDetails] = useState<{
@@ -173,6 +174,61 @@ export default function LocationAdjustments() {
     };
   }, [addresses.length]);
 
+  const handleUseMyLocation = () => {
+    if (selectedMarkerIndex === null) {
+      toast.info("Por favor, selecione um pino no mapa primeiro.");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      toast.error("Geolocalização não é suportada pelo seu navegador.");
+      return;
+    }
+
+    setIsLocating(true);
+    const markerData = markers.current.find(m => m.index === selectedMarkerIndex);
+    if (!markerData) {
+      setIsLocating(false);
+      return;
+    }
+    const { marker, index } = markerData;
+    const originalLngLat = marker.getLngLat();
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        marker.setLngLat([longitude, latitude]);
+        map.current?.flyTo({ center: [longitude, latitude], zoom: 16 });
+
+        setDialogAddressDetails({
+          index,
+          addressName: addresses[index].correctedAddress || addresses[index].originalAddress,
+          newLat: latitude,
+          newLng: longitude,
+          originalLat: originalLngLat.lat,
+          originalLng: originalLngLat.lng,
+        });
+        setShowConfirmDialog(true);
+        setIsLocating(false);
+        toast.success("Localização atualizada para sua posição GPS!");
+      },
+      (error) => {
+        let errorMessage = "Erro ao obter sua localização.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage = "Permissão de geolocalização negada.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Informações de localização indisponíveis.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Tempo esgotado ao obter a localização.";
+        }
+        toast.error(errorMessage);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleConfirmSave = () => {
     if (dialogAddressDetails) {
       const { index, newLat, newLng } = dialogAddressDetails;
@@ -254,12 +310,33 @@ export default function LocationAdjustments() {
               Endereços para Ajuste
             </h3>
             <p className="text-sm text-muted-foreground text-center mt-2">
-              Clique em um pin para selecioná-lo e arrastar.
+              Clique em um pin para selecioná-lo e arrastar, ou use sua localização GPS.
             </p>
           </div>
 
           <div className="mb-6 rounded-lg overflow-hidden border-2 border-primary/30">
             <div ref={mapContainer} className="h-[400px] w-full" />
+          </div>
+
+          <div className="flex justify-end mt-4">
+            <Button
+              onClick={handleUseMyLocation}
+              disabled={selectedMarkerIndex === null || isLocating}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {isLocating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Localizando...
+                </>
+              ) : (
+                <>
+                  <Locate className="h-4 w-4" />
+                  Usar Minha Localização
+                </>
+              )}
+            </Button>
           </div>
         </Card>
       </div>
