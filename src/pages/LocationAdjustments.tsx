@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowLeft, CheckCircle2, Locate, Loader2 } from "lucide-react";
-import { ProcessedAddress } from "@/lib/nominatim-service";
+import { ProcessedAddress, reverseGeocodeAddress } from "@/lib/nominatim-service";
 import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
 import maplibregl from 'maplibre-gl';
@@ -115,17 +115,19 @@ export default function LocationAdjustments() {
         address.status === 'corrected' || address.status === 'atualizado' ? '#3b82f6' :
         '#ef4444';
 
+      const popup = new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
+        <div class="p-2 bg-white rounded-md shadow-md">
+          <p class="font-semibold text-base text-black">${address.correctedAddress || address.originalAddress}</p>
+          <p class="text-sm text-gray-800 mt-1">Clique para selecionar e arrastar</p>
+        </div>
+      `);
+
       const marker = new maplibregl.Marker({
         color: markerColor,
         draggable: false
       })
         .setLngLat([lng, lat])
-        .setPopup(new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
-          <div class="p-2 bg-white rounded-md shadow-md">
-            <p class="font-semibold text-base text-black">${address.correctedAddress || address.originalAddress}</p>
-            <p class="text-sm text-gray-800 mt-1">Clique para selecionar e arrastar</p>
-          </div>
-        `))
+        .setPopup(popup)
         .addTo(map.current!);
 
       marker.getElement().addEventListener('click', (e) => {
@@ -136,16 +138,29 @@ export default function LocationAdjustments() {
       marker.on('dragstart', () => {
         const currentLngLat = marker.getLngLat();
         draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
+        popup.setHTML('<div class="p-2 text-black">Arraste para a nova posição...</div>');
       });
 
-      marker.on('dragend', () => {
+      marker.on('dragend', async () => {
         const newLngLat = marker.getLngLat();
         const originalCoords = draggingMarkerOriginalCoords.current;
+
+        popup.setHTML('<div class="p-2 text-black animate-pulse">Buscando endereço...</div>');
+
+        const reverseGeocodeResult = await reverseGeocodeAddress(newLngLat.lat, newLngLat.lng);
+        const foundAddressName = reverseGeocodeResult?.display_name || "Endereço não encontrado";
+
+        popup.setHTML(`
+          <div class="p-2 bg-white rounded-md shadow-md">
+            <p class="font-semibold text-base text-black">${foundAddressName}</p>
+            <p class="text-sm text-gray-800 mt-1">Confirme para salvar esta posição.</p>
+          </div>
+        `);
 
         if (originalCoords) {
           setDialogAddressDetails({
             index,
-            addressName: address.correctedAddress || address.originalAddress,
+            addressName: foundAddressName,
             newLat: newLngLat.lat,
             newLng: newLngLat.lng,
             originalLat: originalCoords.lat,
@@ -195,15 +210,18 @@ export default function LocationAdjustments() {
     const originalLngLat = marker.getLngLat();
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         
         marker.setLngLat([longitude, latitude]);
         map.current?.flyTo({ center: [longitude, latitude], zoom: 16 });
 
+        const reverseGeocodeResult = await reverseGeocodeAddress(latitude, longitude);
+        const foundAddressName = reverseGeocodeResult?.display_name || "Sua Localização Atual";
+
         setDialogAddressDetails({
           index,
-          addressName: addresses[index].correctedAddress || addresses[index].originalAddress,
+          addressName: foundAddressName,
           newLat: latitude,
           newLng: longitude,
           originalLat: originalLngLat.lat,
@@ -231,7 +249,7 @@ export default function LocationAdjustments() {
 
   const handleConfirmSave = () => {
     if (dialogAddressDetails) {
-      const { index, newLat, newLng } = dialogAddressDetails;
+      const { index, newLat, newLng, addressName } = dialogAddressDetails;
       setAddresses((prevAddresses) => {
         const newAddresses = [...prevAddresses];
         const updatedAddress = {
@@ -241,6 +259,7 @@ export default function LocationAdjustments() {
           status: 'atualizado' as const,
           note: 'Ajustado no mapa',
           learned: true,
+          correctedAddress: addressName, // Atualiza o endereço corrigido com o encontrado
         };
         newAddresses[index] = updatedAddress;
 

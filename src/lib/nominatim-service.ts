@@ -11,7 +11,7 @@ function sleep(ms: number): Promise<void> { return new Promise(r => setTimeout(r
 function normalizeText(s: string | undefined | null): string {
   if (!s) return "";
   // lowercase, trim, remove diacritics, collapse spaces
-  const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const withNoAccents = s.normalize("NFD").replace(/[\u0000-\u036f]/g, "");
   return withNoAccents.toLowerCase()
     .replace(/(av|av\.|avenida)\b/g, "avenida")
     .replace(/\b(r|r\.)\b/g, "rua")
@@ -81,6 +81,11 @@ export interface SingleGeocodeResult {
   address?: any;
 }
 
+export interface ReverseGeocodeResult {
+  display_name: string;
+  address?: any;
+}
+
 /**
  * Invokes the Supabase Edge Function to geocode a batch of addresses.
  * @param addresses An array of address objects to geocode.
@@ -140,6 +145,35 @@ export async function geocodeSingleAddress(query: string): Promise<SingleGeocode
     return data as SingleGeocodeResult;
   } catch (error) {
     console.error("Error calling single-geocode Edge Function:", error);
+    toast.error((error as Error).message || "Erro desconhecido ao buscar endereço.");
+    return null;
+  }
+}
+
+/**
+ * Invokes the Supabase Edge Function to reverse geocode coordinates.
+ * @param lat The latitude.
+ * @param lon The longitude.
+ * @returns A promise that resolves to a ReverseGeocodeResult or null if not found.
+ */
+export async function reverseGeocodeAddress(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+      body: { lat, lon }
+    });
+
+    if (error) {
+      console.error("Edge Function 'reverse-geocode' error:", error);
+      throw new Error(error.message || "Erro ao buscar endereço por coordenadas.");
+    }
+
+    if (!data || data.message === "No address found for the coordinates.") {
+      return null;
+    }
+
+    return data as ReverseGeocodeResult;
+  } catch (error) {
+    console.error("Error calling reverse-geocode Edge Function:", error);
     toast.error((error as Error).message || "Erro desconhecido ao buscar endereço.");
     return null;
   }
