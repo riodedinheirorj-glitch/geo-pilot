@@ -271,9 +271,9 @@ export default function LocationAdjustments() {
     );
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = (finalAddressName: string) => {
     if (dialogAddressDetails) {
-      const { index, newLat, newLng, addressName } = dialogAddressDetails;
+      const { index, newLat, newLng } = dialogAddressDetails;
       setAddresses((prevAddresses) => {
         const newAddresses = [...prevAddresses];
         const updatedAddress = {
@@ -283,7 +283,7 @@ export default function LocationAdjustments() {
           status: 'atualizado' as const,
           note: 'Ajustado no mapa',
           learned: true,
-          correctedAddress: addressName, // Atualiza o endereço corrigido com o encontrado
+          correctedAddress: finalAddressName, // Atualiza o endereço corrigido com o editado/confirmado
         };
         newAddresses[index] = updatedAddress;
 
