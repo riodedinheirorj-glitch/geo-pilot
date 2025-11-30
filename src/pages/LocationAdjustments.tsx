@@ -143,7 +143,6 @@ export default function LocationAdjustments() {
       });
 
       const throttledUpdate = throttle(async (lngLat: maplibregl.LngLat) => {
-        popup.setHTML('<div class="p-2 text-black animate-pulse">Buscando endereço...</div>');
         const result = await reverseGeocodeAddress(lngLat.lat, lngLat.lng);
         if (result?.display_name) {
           popup.setHTML(`<div class="p-2 text-black">${result.display_name}</div>`);
