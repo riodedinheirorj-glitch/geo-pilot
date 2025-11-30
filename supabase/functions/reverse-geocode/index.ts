@@ -24,7 +24,8 @@ async function reverseGeocode(lat: number, lon: number) {
         lat: lat.toString(),
         lon: lon.toString(),
         format: "json",
-        addressdetails: "1"
+        addressdetails: "1",
+        zoom: "18" // Solicita detalhes no nível da rua
       });
       const url = `${LOCATIONIQ_REVERSE_URL}?${params.toString()}`;
       const resp = await fetch(url, {
@@ -46,7 +47,8 @@ async function reverseGeocode(lat: number, lon: number) {
       lat: lat.toString(),
       lon: lon.toString(),
       format: "json",
-      addressdetails: "1"
+      addressdetails: "1",
+      zoom: "18" // Solicita detalhes no nível da rua
     });
     const url = `${NOMINATIM_REVERSE_URL}?${params.toString()}`;
     const resp = await fetch(url, {
