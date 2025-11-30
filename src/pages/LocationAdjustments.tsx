@@ -4,16 +4,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Edit, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
-import AddressMapEditor from "@/components/AddressMapEditor";
 import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
-import { useIsMobile } from "@/hooks/use-mobile";
 import maplibregl from 'maplibre-gl';
-import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog"; // Importar o novo componente de diálogo
+import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog";
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
-  totalOriginalSequences: number; // Adicionado para passar o total de pacotes
+  totalOriginalSequences: number;
 }
 
 export default function LocationAdjustments() {
@@ -22,25 +20,22 @@ export default function LocationAdjustments() {
   const { initialProcessedData, totalOriginalSequences } = (location.state || {}) as LocationAdjustmentsState;
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
-  const isMobile = useIsMobile();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<{ marker: maplibregl.Marker; index: number }[]>([]);
+  const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
 
-  // Estados para o diálogo de confirmação
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogAddressDetails, setDialogAddressDetails] = useState<{
     index: number;
     addressName: string;
     newLat: number;
     newLng: number;
-    originalLat: number; // Armazenar original para possível reversão
-    originalLng: number; // Armazenar original para possível reversão
+    originalLat: number;
+    originalLng: number;
   } | null>(null);
 
-  // Ref para armazenar as coordenadas originais do marcador que está sendo arrastado
   const draggingMarkerOriginalCoords = useRef<{ lat: number; lng: number } | null>(null);
-  const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null); // Novo estado para o marcador selecionado
 
   useEffect(() => {
     if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -49,12 +44,54 @@ export default function LocationAdjustments() {
     }
   }, [initialProcessedData, navigate]);
 
-  // Initialize map with all pins
+  const handleMarkerClick = (clickedIndex: number) => {
+    setSelectedMarkerIndex(prevIndex => {
+      const markerData = markers.current.find(m => m.index === clickedIndex);
+      if (!markerData) return prevIndex;
+      const { marker } = markerData;
+
+      if (prevIndex !== null && prevIndex !== clickedIndex) {
+        toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
+        return prevIndex;
+      }
+
+      if (prevIndex === clickedIndex) {
+        marker.setDraggable(false);
+        marker.getPopup()?.remove();
+        toast.info("Seleção de endereço cancelada.");
+        return null;
+      }
+
+      if (prevIndex === null) {
+        marker.setDraggable(true);
+        marker.getPopup()?.addTo(map.current!);
+        toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
+        return clickedIndex;
+      }
+
+      return prevIndex;
+    });
+  };
+
+  const handleMapClick = () => {
+    setSelectedMarkerIndex(prevIndex => {
+      if (prevIndex !== null) {
+        const prevMarker = markers.current.find(m => m.index === prevIndex)?.marker;
+        if (prevMarker) {
+          prevMarker.setDraggable(false);
+          prevMarker.getPopup()?.remove();
+        }
+        toast.info("Seleção de endereço cancelada.");
+        return null;
+      }
+      return prevIndex;
+    });
+  };
+
   useEffect(() => {
     if (!mapContainer.current || addresses.length === 0) return;
-    if (map.current) return; // Initialize only once
+    if (map.current) return;
 
-    // Initialize map
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: 'https://tiles.stadiamaps.com/styles/osm_bright.json',
@@ -64,17 +101,14 @@ export default function LocationAdjustments() {
 
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    // Add markers for all addresses
     const bounds = new maplibregl.LngLatBounds();
     
     addresses.forEach((address, index) => {
       const lat = parseFloat(address.latitude || '-23.55052');
       const lng = parseFloat(address.longitude || '-46.633309');
 
-      // Skip invalid coordinates
       if (isNaN(lat) || isNaN(lng)) return;
 
-      // Create marker with color based on status
       const markerColor = 
         address.status === 'valid' ? '#10b981' :
         address.status === 'corrected' || address.status === 'atualizado' ? '#3b82f6' :
@@ -82,7 +116,7 @@ export default function LocationAdjustments() {
 
       const marker = new maplibregl.Marker({
         color: markerColor,
-        draggable: false // Pins não arrastáveis por padrão
+        draggable: false
       })
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
@@ -93,19 +127,16 @@ export default function LocationAdjustments() {
         `))
         .addTo(map.current!);
 
-      // Handle click to select marker
       marker.getElement().addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent map click event from firing
+        e.stopPropagation();
         handleMarkerClick(index);
       });
 
-      // Handle drag start
       marker.on('dragstart', () => {
         const currentLngLat = marker.getLngLat();
         draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
       });
 
-      // Handle drag end
       marker.on('dragend', () => {
         const newLngLat = marker.getLngLat();
         const originalCoords = draggingMarkerOriginalCoords.current;
@@ -121,19 +152,17 @@ export default function LocationAdjustments() {
           });
           setShowConfirmDialog(true);
         }
-        draggingMarkerOriginalCoords.current = null; // Reset
+        draggingMarkerOriginalCoords.current = null;
       });
 
       markers.current.push({ marker, index });
       bounds.extend([lng, lat]);
     });
 
-    // Fit map to show all markers
     if (markers.current.length > 0) {
       map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
     }
 
-    // Handle map click to deselect marker
     map.current.on('click', handleMapClick);
 
     return () => {
@@ -143,46 +172,6 @@ export default function LocationAdjustments() {
       map.current = null;
     };
   }, [addresses.length]);
-
-  const handleMarkerClick = (clickedIndex: number) => {
-    const currentMarker = markers.current.find(m => m.index === clickedIndex)?.marker;
-    if (!currentMarker) return;
-
-    // If a different marker is already selected, show a message and do nothing.
-    if (selectedMarkerIndex !== null && selectedMarkerIndex !== clickedIndex) {
-      toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
-      return;
-    }
-
-    // If clicking the currently selected marker, deselect it.
-    if (selectedMarkerIndex === clickedIndex) {
-      currentMarker.setDraggable(false);
-      currentMarker.getPopup()?.remove();
-      setSelectedMarkerIndex(null);
-      toast.info("Seleção de endereço cancelada.");
-      return;
-    }
-
-    // If no marker is selected, select this one.
-    if (selectedMarkerIndex === null) {
-      currentMarker.setDraggable(true);
-      setSelectedMarkerIndex(clickedIndex);
-      currentMarker.getPopup()?.addTo(map.current!);
-      toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
-    }
-  };
-
-  const handleMapClick = () => {
-    if (selectedMarkerIndex !== null) {
-      const prevMarker = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
-      if (prevMarker) {
-        prevMarker.setDraggable(false);
-        prevMarker.getPopup()?.remove(); // Close popup
-      }
-      setSelectedMarkerIndex(null);
-      toast.info("Seleção de endereço cancelada.");
-    }
-  };
 
   const handleConfirmSave = () => {
     if (dialogAddressDetails) {
@@ -199,7 +188,6 @@ export default function LocationAdjustments() {
         };
         newAddresses[index] = updatedAddress;
 
-        // Save to learning
         const learningKey = buildLearningKey(updatedAddress);
         saveLearnedLocation(learningKey, newLat, newLng);
 
@@ -209,21 +197,12 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    // Deselect the marker after action
-    if (selectedMarkerIndex !== null) {
-      const markerToDeselect = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
-      if (markerToDeselect) {
-        markerToDeselect.setDraggable(false);
-        markerToDeselect.getPopup()?.remove();
-      }
-      setSelectedMarkerIndex(null);
-    }
+    setSelectedMarkerIndex(null);
   };
 
   const handleCancelSave = () => {
     if (dialogAddressDetails) {
       const { index, originalLat, originalLng } = dialogAddressDetails;
-      // Reverter a posição do marcador no mapa
       const markerToRevert = markers.current.find(m => m.index === index)?.marker;
       if (markerToRevert) {
         markerToRevert.setLngLat([originalLng, originalLat]);
@@ -232,15 +211,7 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    // Deselect the marker after action
-    if (selectedMarkerIndex !== null) {
-      const markerToDeselect = markers.current.find(m => m.index === selectedMarkerIndex)?.marker;
-      if (markerToDeselect) {
-        markerToDeselect.setDraggable(false);
-        markerToDeselect.getPopup()?.remove();
-      }
-      setSelectedMarkerIndex(null);
-    }
+    setSelectedMarkerIndex(null);
   };
 
   const handleFinishAdjustments = () => {
@@ -287,7 +258,6 @@ export default function LocationAdjustments() {
             </p>
           </div>
 
-          {/* Interactive Map */}
           <div className="mb-6 rounded-lg overflow-hidden border-2 border-primary/30">
             <div ref={mapContainer} className="h-[400px] w-full" />
           </div>
