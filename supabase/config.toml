@@ -1,0 +1,13 @@
+project_id = "lgluystkbsdbvriochys"
+
+[functions.create-admin]
+verify_jwt = false
+
+[functions.abacate-pix-qrcode]
+verify_jwt = true
+
+[functions.abacate-check-payment]
+verify_jwt = true
+
+[functions.add-credits]
+verify_jwt = true
