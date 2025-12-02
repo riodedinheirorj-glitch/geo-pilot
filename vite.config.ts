@@ -88,6 +88,7 @@ export default defineConfig(({ mode }) => ({
             },
           },
         ],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // Aumenta o limite para 3 MB
       },
       devOptions: {
         enabled: true,
