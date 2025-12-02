@@ -144,3 +144,32 @@ export async function geocodeSingleAddress(query: string): Promise<SingleGeocode
     return null;
   }
 }
+
+/**
+ * Invokes the Supabase Edge Function to reverse geocode coordinates.
+ * @param lat Latitude.
+ * @param lon Longitude.
+ * @returns A promise that resolves to an object with display_name and address details, or null if not found.
+ */
+export async function reverseGeocodeAddress(lat: number, lon: number): Promise<{ display_name: string; address: any } | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+      body: { lat, lon }
+    });
+
+    if (error) {
+      console.error("Edge Function 'reverse-geocode' error:", error);
+      throw new Error(error.message || "Erro ao reverter geocodificação.");
+    }
+
+    if (!data || data.message === "No address found for the coordinates.") {
+      return null;
+    }
+
+    return data as { display_name: string; address: any };
+  } catch (error) {
+    console.error("Error calling reverse-geocode Edge Function:", error);
+    // Não exibe toast aqui para evitar spam em drag do mapa
+    return null;
+  }
+}

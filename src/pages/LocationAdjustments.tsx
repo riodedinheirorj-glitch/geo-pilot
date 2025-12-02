@@ -350,6 +350,7 @@ export default function LocationAdjustments() {
             <p className="text-sm text-muted-foreground text-center mt-2">
               Clique em um pin para selecioná-lo e arrastar, ou use sua localização GPS.
             </p>
+          </p>
           </div>
 
           <div className="mb-6 rounded-lg overflow-hidden border-2 border-primary/30">
