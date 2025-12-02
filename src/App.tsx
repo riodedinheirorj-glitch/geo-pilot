@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PWAProvider } from "@/contexts/PWAContext";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { InstallPromptDialog } from "@/components/InstallPromptDialog";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -38,6 +39,7 @@ const App = () => (
         <Sonner />
         <UpdateNotification />
         <OfflineIndicator />
+        <InstallPromptDialog />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthEventBridge />
           <Routes>

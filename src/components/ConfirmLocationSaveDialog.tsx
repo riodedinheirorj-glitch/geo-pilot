@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,14 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { MapPin } from "lucide-react";
 
 interface ConfirmLocationSaveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (editedAddressName: string) => void;
+  onConfirm: () => void;
   onCancel: () => void;
   addressName: string;
   newLat: number;
@@ -31,16 +28,6 @@ export function ConfirmLocationSaveDialog({
   newLat,
   newLng,
 }: ConfirmLocationSaveDialogProps) {
-  const [editableAddress, setEditableAddress] = useState(addressName);
-
-  useEffect(() => {
-    setEditableAddress(addressName);
-  }, [addressName]);
-
-  const handleConfirm = () => {
-    onConfirm(editableAddress);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -50,32 +37,26 @@ export function ConfirmLocationSaveDialog({
             Salvar Nova Localização?
           </DialogTitle>
           <DialogDescription>
-            Você moveu o pino. Confirme ou edite o nome do endereço para salvar as novas coordenadas.
+            Você moveu o pin para o endereço: <span className="font-semibold">{addressName}</span>.
+            Deseja salvar as novas coordenadas?
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="address-name">Nome do Endereço</Label>
-            <Input
-              id="address-name"
-              value={editableAddress}
-              onChange={(e) => setEditableAddress(e.target.value)}
-            />
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <p>
-              <span className="font-medium">Latitude:</span> {newLat.toFixed(6)}
-            </p>
-            <p>
-              <span className="font-medium">Longitude:</span> {newLng.toFixed(6)}
-            </p>
-          </div>
+        <div className="py-4 text-sm text-muted-foreground">
+          <p>
+            <span className="font-medium">Latitude:</span> {newLat.toFixed(6)}
+          </p>
+          <p>
+            <span className="font-medium">Longitude:</span> {newLng.toFixed(6)}
+          </p>
+          <p className="mt-2">
+            Esta localização será salva para uso futuro e marcada como "atualizada".
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm}>
+          <Button onClick={onConfirm}>
             Salvar Localização
           </Button>
         </DialogFooter>

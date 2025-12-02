@@ -46,48 +46,43 @@ export default function LocationAdjustments() {
     }
   }, [initialProcessedData, navigate]);
 
-  const handleMarkerClick = (clickedIndex: number) => {
-    setSelectedMarkerIndex(prevIndex => {
-      const markerData = markers.current.find(m => m.index === clickedIndex);
-      if (!markerData) return prevIndex;
-      const { marker } = markerData;
-
-      if (prevIndex !== null && prevIndex !== clickedIndex) {
-        toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
-        return prevIndex;
-      }
-
-      if (prevIndex === clickedIndex) {
-        marker.setDraggable(false);
-        marker.getPopup()?.remove();
-        toast.info("Seleção de endereço cancelada.");
-        return null;
-      }
-
-      if (prevIndex === null) {
+  // Centraliza a lógica de seleção/desseleção de marcadores
+  useEffect(() => {
+    markers.current.forEach(({ marker, index }) => {
+      if (index === selectedMarkerIndex) {
         marker.setDraggable(true);
         marker.getPopup()?.addTo(map.current!);
-        toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
-        return clickedIndex;
+        marker.getElement().classList.add('selected-marker');
+      } else {
+        marker.setDraggable(false);
+        marker.getPopup()?.remove();
+        marker.getElement().classList.remove('selected-marker');
+      }
+    });
+  }, [selectedMarkerIndex, addresses]); // Dependência 'addresses' para re-renderizar se os dados mudarem
+
+  const handleMarkerClick = (clickedIndex: number) => {
+    setSelectedMarkerIndex(prevIndex => {
+      // Se um pino diferente for clicado enquanto outro já está selecionado
+      if (prevIndex !== null && prevIndex !== clickedIndex) {
+        toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
+        return prevIndex; // Mantém o pino anterior selecionado
       }
 
-      return prevIndex;
+      // Se o pino atualmente selecionado for clicado novamente (desselecionar)
+      if (prevIndex === clickedIndex) {
+        toast.info("Seleção de endereço cancelada.");
+        return null; // Desseleciona
+      }
+
+      // Se nenhum pino estiver selecionado, seleciona o pino clicado
+      toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
+      return clickedIndex;
     });
   };
 
   const handleMapClick = () => {
-    setSelectedMarkerIndex(prevIndex => {
-      if (prevIndex !== null) {
-        const prevMarker = markers.current.find(m => m.index === prevIndex)?.marker;
-        if (prevMarker) {
-          prevMarker.setDraggable(false);
-          prevMarker.getPopup()?.remove();
-        }
-        toast.info("Seleção de endereço cancelada.");
-        return null;
-      }
-      return prevIndex;
-    });
+    setSelectedMarkerIndex(null); // Desseleciona qualquer pino ao clicar no mapa
   };
 
   useEffect(() => {
@@ -125,7 +120,7 @@ export default function LocationAdjustments() {
 
       const marker = new maplibregl.Marker({
         color: markerColor,
-        draggable: false
+        draggable: false // Inicia não arrastável, controlado pelo useEffect
       })
         .setLngLat([lng, lat])
         .setPopup(popup)
@@ -139,16 +134,13 @@ export default function LocationAdjustments() {
       marker.on('dragstart', () => {
         const currentLngLat = marker.getLngLat();
         draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
-        popup.setHTML('<div class="p-2 text-black">Solte o pino na posição correta.</div>');
+        popup.setHTML('<div class="p-2 text-black">Arraste para a nova posição...</div>');
       });
 
       const throttledUpdate = throttle(async (lngLat: maplibregl.LngLat) => {
-        popup.setHTML('<div class="p-2 text-gray-600 animate-pulse">Buscando endereço...</div>');
         const result = await reverseGeocodeAddress(lngLat.lat, lngLat.lng);
         if (result?.display_name) {
           popup.setHTML(`<div class="p-2 text-black">${result.display_name}</div>`);
-        } else {
-          popup.setHTML(`<div class="p-2 text-orange-600">Endereço não encontrado.</div>`);
         }
       }, 750);
 
@@ -299,7 +291,7 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    setSelectedMarkerIndex(null);
+    setSelectedMarkerIndex(null); // Desseleciona o pino após salvar
   };
 
   const handleCancelSave = () => {
@@ -313,7 +305,7 @@ export default function LocationAdjustments() {
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    setSelectedMarkerIndex(null);
+    setSelectedMarkerIndex(null); // Desseleciona o pino após cancelar
   };
 
   const handleFinishAdjustments = () => {

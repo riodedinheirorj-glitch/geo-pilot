@@ -11,11 +11,32 @@ export function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    // Verifica se já está instalado
+    // Verifica se já está instalado (melhorada para mobile)
     const checkInstalled = () => {
+      // Verifica display mode standalone (funciona em Chrome/Edge Android e Safari iOS)
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      
+      // Verifica iOS standalone
       const isIOSStandalone = (window.navigator as any).standalone === true;
-      setIsInstalled(isStandalone || isIOSStandalone);
+      
+      // Verifica se foi lançado como app no Android
+      const isAndroidApp = window.matchMedia('(display-mode: standalone)').matches ||
+                          window.matchMedia('(display-mode: fullscreen)').matches ||
+                          window.matchMedia('(display-mode: minimal-ui)').matches;
+      
+      // Verifica user agent para detectar TWA (Trusted Web Activity) no Android
+      const isTWA = document.referrer.includes('android-app://');
+      
+      const installed = isStandalone || isIOSStandalone || isAndroidApp || isTWA;
+      setIsInstalled(installed);
+      
+      console.log('🔍 PWA Installation Check:', {
+        isStandalone,
+        isIOSStandalone,
+        isAndroidApp,
+        isTWA,
+        installed
+      });
     };
 
     checkInstalled();

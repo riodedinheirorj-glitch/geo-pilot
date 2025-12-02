@@ -125,6 +125,27 @@ All colors MUST be HSL.
     );
     background-size: 1000px 100%;
   }
+  
+  /* Marcador selecionado com efeito de pulso */
+  @keyframes pulse-marker {
+    0%, 100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 10px #fbbf24);
+    }
+    50% {
+      transform: scale(1.15);
+      filter: drop-shadow(0 0 20px #fbbf24) drop-shadow(0 0 30px #fbbf24);
+    }
+  }
+  
+  .selected-marker {
+    z-index: 1000 !important;
+  }
+  
+  .selected-marker svg {
+    filter: drop-shadow(0 0 8px #fbbf24) drop-shadow(0 0 12px #fbbf24) !important;
+    animation: pulse-marker 1s ease-in-out infinite !important;
+  }
 }
 
 a[href*="lovable.dev"], iframe[src*="lovable.dev"], div[style*="Edit with Lovable"], .lovable-badge {
