@@ -25,17 +25,17 @@ export default defineConfig(({ mode }) => ({
         display: 'standalone',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: '/rotasmart-logo-192x192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/rotasmart-logo-512x512.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: '/icon-maskable.png',
+            src: '/rotasmart-logo-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
