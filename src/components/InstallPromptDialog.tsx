@@ -97,38 +97,11 @@ export function InstallPromptDialog() {
             Instalar RotaSmart
           </DialogTitle>
           <DialogDescription className="text-center text-base">
-            Instale o RotaSmart no seu dispositivo para acesso rápido, funcionar offline e ter uma experiência completa de aplicativo nativo.
+            Instale o RotaSmart no seu dispositivo para acesso rápido e uma experiência completa de aplicativo.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-3">
-          <div className="flex items-start gap-3 text-sm">
-            <div className="mt-0.5 h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-primary text-xs font-semibold">✓</span>
-            </div>
-            <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">Acesso instantâneo</span> - Abra direto da tela inicial
-            </p>
-          </div>
-
-          <div className="flex items-start gap-3 text-sm">
-            <div className="mt-0.5 h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-primary text-xs font-semibold">✓</span>
-            </div>
-            <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">Funciona offline</span> - Use mesmo sem internet
-            </p>
-          </div>
-
-          <div className="flex items-start gap-3 text-sm">
-            <div className="mt-0.5 h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-primary text-xs font-semibold">✓</span>
-            </div>
-            <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">Experiência nativa</span> - Como um app de verdade
-            </p>
-          </div>
-        </div>
+        {/* Conteúdo removido conforme solicitado */}
 
         <DialogFooter className="flex-col sm:flex-col gap-2">
           <Button
