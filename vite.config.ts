@@ -100,4 +100,7 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000, // Aumenta o limite de aviso para 1000 KB (1 MB)
+  },
 }));
