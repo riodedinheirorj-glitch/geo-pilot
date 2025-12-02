@@ -58,3 +58,33 @@ export function formatCpf(value: string): string {
   }
   return value;
 }
+
+/**
+ * Creates a throttled function that only invokes `func` at most once per every `delay` milliseconds.
+ * @param func The function to throttle.
+ * @param delay The number of milliseconds to throttle invocations to.
+ * @returns A new throttled function.
+ */
+export function throttle<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: Parameters<T> | null = null;
+  let lastThis: ThisParameterType<T> | null = null;
+
+  const throttled = function(this: ThisParameterType<T>, ...args: Parameters<T>) {
+    lastArgs = args;
+    lastThis = this;
+
+    if (!timeoutId) {
+      timeoutId = setTimeout(() => {
+        if (lastArgs) {
+          func.apply(lastThis, lastArgs);
+          lastArgs = null;
+          lastThis = null;
+        }
+        timeoutId = null;
+      }, delay);
+    }
+  };
+
+  return throttled;
+}
