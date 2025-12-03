@@ -89,10 +89,27 @@ export default function LocationAdjustments() {
     if (!mapContainer.current || addresses.length === 0) return;
     if (map.current) return;
 
+    // Estilo básico do OpenStreetMap
+    const osmStyle = {
+      version: 8,
+      sources: {
+        osm: {
+          type: 'raster',
+          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '© OpenStreetMap contributors'
+        }
+      },
+      layers: [{
+        id: 'osm',
+        type: 'raster',
+        source: 'osm'
+      }]
+    };
+
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      // Alterado para um estilo OpenStreetMap padrão que não requer API Key
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: osmStyle,
       center: [-46.633309, -23.55052],
       zoom: 13
     });
