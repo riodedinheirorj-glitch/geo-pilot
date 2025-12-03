@@ -91,7 +91,8 @@ export default function LocationAdjustments() {
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json',
+      // Alterado para um estilo OpenStreetMap padrão que não requer API Key
+      style: 'https://demotiles.maplibre.org/style.json',
       center: [-46.633309, -23.55052],
       zoom: 13
     });
