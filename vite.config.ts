@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import { VitePWA } from "vite-plugin-pwa"; // Import VitePWA
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -17,25 +17,26 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'RotaSmart - Gestão Inteligente de Rotas e Entregas',
+        name: 'RotaSmart',
         short_name: 'RotaSmart',
-        description: 'Sistema profissional para otimização de rotas, agrupamento e exportação de ordens de entrega. Otimize sua logística com RotaSmart.',
-        theme_color: '#00baff',
-        background_color: '#16181d',
+        description: 'Sistema profissional para otimização de rotas e entregas',
+        theme_color: '#000000',
+        background_color: '#000000',
         display: 'standalone',
+        start_url: '/',
         icons: [
           {
-            src: '/rotasmart-logo-192x192.png',
+            src: '/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/rotasmart-logo-512x512.png',
+            src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: '/rotasmart-logo-maskable.png',
+            src: '/icon-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
@@ -43,30 +44,26 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.origin === self.location.origin,
+            urlPattern: /^https:\/\/(a|b|c)\.tile\.openstreetmap\.org\/.*/,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /^https:\/\/tiles\.stadiamaps\.com\/.*/,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ request }) => ['document', 'script', 'style', 'font'].includes(request.destination),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'app-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => url.origin === 'https://tiles.stadiamaps.com',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'stadia-tiles-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                maxAgeSeconds: 60 * 60 * 24 * 7,
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -80,7 +77,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'geocode-api-cache',
               expiration: {
                 maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxAgeSeconds: 60 * 60 * 24,
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -88,7 +85,7 @@ export default defineConfig(({ mode }) => ({
             },
           },
         ],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // Aumenta o limite para 3 MB
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       devOptions: {
         enabled: true,
@@ -101,6 +98,6 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1000, // Aumenta o limite de aviso para 1000 KB (1 MB)
+    chunkSizeWarningLimit: 1000,
   },
 }));

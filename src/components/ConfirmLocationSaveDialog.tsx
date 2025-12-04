@@ -12,7 +12,7 @@ import { MapPin } from "lucide-react";
 interface ConfirmLocationSaveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: (addressName: string) => void;
   onCancel: () => void;
   addressName: string;
   newLat: number;
@@ -56,7 +56,7 @@ export function ConfirmLocationSaveDialog({
           <Button variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button onClick={onConfirm}>
+          <Button onClick={() => onConfirm(addressName)}>
             Salvar Localização
           </Button>
         </DialogFooter>
