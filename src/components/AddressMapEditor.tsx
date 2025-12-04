@@ -38,8 +38,8 @@ export default function AddressMapEditor({
     }
 
     // Estilo básico do OpenStreetMap
-    const osmStyle = {
-      version: 8,
+    const osmStyle: maplibregl.StyleSpecification = {
+      version: 8 as const,
       sources: {
         osm: {
           type: 'raster',

@@ -90,8 +90,8 @@ export default function LocationAdjustments() {
     if (map.current) return;
 
     // Estilo básico do OpenStreetMap
-    const osmStyle = {
-      version: 8,
+    const osmStyle: maplibregl.StyleSpecification = {
+      version: 8 as const,
       sources: {
         osm: {
           type: 'raster',
