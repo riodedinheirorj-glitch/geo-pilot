@@ -146,30 +146,49 @@ export async function geocodeSingleAddress(query: string): Promise<SingleGeocode
 }
 
 /**
- * Invokes the Supabase Edge Function to reverse geocode coordinates.
+ * Invokes the Supabase Edge Function to reverse geocode coordinates with retry logic.
  * @param lat Latitude.
  * @param lon Longitude.
+ * @param maxRetries Maximum retry attempts (default: 2).
  * @returns A promise that resolves to an object with display_name and address details, or null if not found.
  */
-export async function reverseGeocodeAddress(lat: number, lon: number): Promise<{ display_name: string; address: any } | null> {
-  try {
-    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-      body: { lat, lon }
-    });
+export async function reverseGeocodeAddress(
+  lat: number, 
+  lon: number, 
+  maxRetries: number = 2
+): Promise<{ display_name: string; address: any } | null> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Exponential backoff: 0ms, 500ms, 1500ms
+      if (attempt > 0) {
+        await sleep(500 * attempt);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+        body: { lat, lon }
+      });
 
-    if (error) {
-      console.error("Edge Function 'reverse-geocode' error:", error);
-      throw new Error(error.message || "Erro ao reverter geocodificação.");
+      if (error) {
+        console.error(`Edge Function 'reverse-geocode' error (attempt ${attempt + 1}):`, error);
+        lastError = new Error(error.message || "Erro ao reverter geocodificação.");
+        continue; // Try again
+      }
+
+      if (!data || data.message === "No address found for the coordinates.") {
+        return null;
+      }
+
+      return data as { display_name: string; address: any };
+    } catch (error) {
+      console.error(`Error calling reverse-geocode (attempt ${attempt + 1}):`, error);
+      lastError = error as Error;
+      // Continue to next retry
     }
-
-    if (!data || data.message === "No address found for the coordinates.") {
-      return null;
-    }
-
-    return data as { display_name: string; address: any };
-  } catch (error) {
-    console.error("Error calling reverse-geocode Edge Function:", error);
-    // Não exibe toast aqui para evitar spam em drag do mapa
-    return null;
   }
+  
+  // All retries failed - return null silently (no toast to avoid spam during map drag)
+  console.warn(`Reverse geocode failed after ${maxRetries + 1} attempts:`, lastError?.message);
+  return null;
 }
