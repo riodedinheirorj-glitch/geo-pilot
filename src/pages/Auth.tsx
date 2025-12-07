@@ -38,7 +38,17 @@ const authSchema = z.object({
 
 const signupSchema = authSchema.extend({
   fullName: z.string().trim().min(1, "Nome é obrigatório").max(100, "Nome muito longo"),
+  phone: z.string().regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos"),
 });
+
+// Formata telefone para exibição
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+};
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -48,6 +58,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
@@ -181,8 +192,9 @@ export default function Auth() {
     e.preventDefault();
     
     // Validate input
+    const phoneDigits = phone.replace(/\D/g, "");
     try {
-      signupSchema.parse({ email, password, fullName });
+      signupSchema.parse({ email, password, fullName, phone: phoneDigits });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -199,6 +211,7 @@ export default function Auth() {
         options: {
           data: {
             full_name: fullName,
+            phone: phoneDigits,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -377,6 +390,17 @@ export default function Auth() {
                 placeholder="Seu nome"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(11) 99999-9999"
+                value={formatPhone(phone)}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                 required
               />
             </div>
