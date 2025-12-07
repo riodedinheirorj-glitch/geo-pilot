@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, X, Smartphone } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { usePWAContext } from '@/contexts/PWAContext';
@@ -89,9 +89,11 @@ export function InstallPromptDialog() {
       <DialogContent className="sm:max-w-md border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
-            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-              <Smartphone className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img 
+              src="/rotasmart-logo-192x192.png" 
+              alt="RotaSmart Logo" 
+              className="h-16 w-16 rounded-full object-cover"
+            />
           </div>
           <DialogTitle className="text-center text-xl">
             Instalar RotaSmart
