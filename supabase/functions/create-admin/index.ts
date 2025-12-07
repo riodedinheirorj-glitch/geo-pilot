@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-setup-token",
 };
 
+// Generate a cryptographically secure random password
+function generateSecurePassword(length = 16): string {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  const randomValues = new Uint8Array(length);
+  crypto.getRandomValues(randomValues);
+  return Array.from(randomValues, (byte) => charset[byte % charset.length]).join("");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     console.log("OPTIONS request received for create-admin.");
@@ -81,10 +89,8 @@ serve(async (req) => {
       console.log("Admin role already exists for user:", existingAdmin.user_id);
       return new Response(
         JSON.stringify({ 
-          message: "Admin user already exists",
-          email: "admin@rotasmart.com",
-          password: "RotaSmart@123@",
-          note: "Use these credentials to login"
+          message: "Admin user already exists. Use password reset if you need to recover access.",
+          exists: true
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -94,11 +100,25 @@ serve(async (req) => {
     }
     console.log("No existing admin role found. Proceeding to create new admin.");
 
+    // Parse request body for email (password will be generated)
+    let adminEmail = "admin@rotasmart.com";
+    try {
+      const body = await req.json();
+      if (body.email && typeof body.email === "string" && body.email.includes("@")) {
+        adminEmail = body.email.trim().toLowerCase();
+      }
+    } catch {
+      // Use default email if no body provided
+    }
+
+    // Generate a secure random password
+    const generatedPassword = generateSecurePassword(20);
+
     // Create admin user
     console.log("Attempting to create admin user in Supabase Auth...");
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: "admin@rotasmart.com",
-      password: "RotaSmart@123@",
+      email: adminEmail,
+      password: generatedPassword,
       email_confirm: true,
       user_metadata: {
         full_name: "Administrador",
@@ -133,15 +153,15 @@ serve(async (req) => {
     }
     console.log("Admin role added successfully for user:", authData.user.id);
 
+    // IMPORTANT: Password is returned ONLY on initial creation
+    // User should immediately change this password after first login
     return new Response(
       JSON.stringify({ 
         success: true,
         message: "Admin user created successfully",
-        credentials: {
-          email: "admin@rotasmart.com",
-          password: "RotaSmart@123@"
-        },
-        warning: "⚠️ CHANGE THIS PASSWORD IMMEDIATELY IN PRODUCTION!"
+        email: adminEmail,
+        temporaryPassword: generatedPassword,
+        warning: "⚠️ This password is shown ONLY ONCE. Save it immediately and change it after first login!"
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
