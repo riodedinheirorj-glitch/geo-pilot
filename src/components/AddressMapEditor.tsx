@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
-import { MapPin, Locate, Loader2, Search } from "lucide-react"; // Import Search icon
+import React, { useState, useCallback } from "react";
+import { GoogleMap, Marker } from "@react-google-maps/api";
+import { MapPin, Locate, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Import Input component
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { geocodeSingleAddress } from "@/lib/nominatim-service"; // Import geocodeSingleAddress
+import { geocodeSingleAddress } from "@/lib/nominatim-service";
+import GoogleMapsLoader from "./GoogleMapsLoader";
 
 interface AddressMapEditorProps {
   initialLat: number;
@@ -14,72 +15,43 @@ interface AddressMapEditorProps {
   addressName: string;
 }
 
-export default function AddressMapEditor({
+const mapContainerStyle = {
+  width: "100%",
+  height: "400px",
+};
+
+function AddressMapEditorContent({
   initialLat,
   initialLng,
   onSave,
   onClose,
   addressName,
 }: AddressMapEditorProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
+  const [markerPosition, setMarkerPosition] = useState({
+    lat: initialLat,
+    lng: initialLng,
+  });
+  const [mapCenter, setMapCenter] = useState({
+    lat: initialLat,
+    lng: initialLng,
+  });
   const [isLocating, setIsLocating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // State for search input
-  const [isSearching, setIsSearching] = useState(false); // State for search loading
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    if (!mapContainer.current) return;
-
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-      markerRef.current = null;
-    }
-
-    // Estilo básico do OpenStreetMap
-    const osmStyle: maplibregl.StyleSpecification = {
-      version: 8 as const,
-      sources: {
-        osm: {
-          type: 'raster',
-          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '© OpenStreetMap contributors'
-        }
-      },
-      layers: [{
-        id: 'osm',
-        type: 'raster',
-        source: 'osm'
-      }]
-    };
-
-    mapRef.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: osmStyle,
-      center: [initialLng, initialLat],
-      zoom: 16,
-    });
-
-    markerRef.current = new maplibregl.Marker({ draggable: true })
-      .setLngLat([initialLng, initialLat])
-      .addTo(mapRef.current);
-
-    mapRef.current.on('load', () => {
-      mapRef.current?.resize();
-    });
-
-    return () => {
-      if (mapRef.current) mapRef.current.remove();
-    };
-  }, [initialLat, initialLng]);
+  const handleMarkerDragEnd = useCallback(
+    (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) {
+        const newLat = e.latLng.lat();
+        const newLng = e.latLng.lng();
+        setMarkerPosition({ lat: newLat, lng: newLng });
+      }
+    },
+    []
+  );
 
   const handleSave = () => {
-    const lngLat = markerRef.current?.getLngLat();
-    if (lngLat) {
-      onSave({ lat: lngLat.lat, lng: lngLat.lng });
-    }
+    onSave({ lat: markerPosition.lat, lng: markerPosition.lng });
     onClose();
   };
 
@@ -93,18 +65,17 @@ export default function AddressMapEditor({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        if (mapRef.current && markerRef.current) {
-          mapRef.current.setCenter([longitude, latitude]);
-          markerRef.current.setLngLat([longitude, latitude]);
-          toast.success("Localização atualizada para sua posição GPS!");
-        }
+        setMarkerPosition({ lat: latitude, lng: longitude });
+        setMapCenter({ lat: latitude, lng: longitude });
+        toast.success("Localização atualizada para sua posição GPS!");
         setIsLocating(false);
       },
       (error) => {
         console.error("Erro ao obter localização:", error);
         let errorMessage = "Erro ao obter sua localização.";
         if (error.code === error.PERMISSION_DENIED) {
-          errorMessage = "Permissão de geolocalização negada. Por favor, permita o acesso à localização nas configurações do seu navegador.";
+          errorMessage =
+            "Permissão de geolocalização negada. Por favor, permita o acesso à localização nas configurações do seu navegador.";
         } else if (error.code === error.POSITION_UNAVAILABLE) {
           errorMessage = "Informações de localização indisponíveis.";
         } else if (error.code === error.TIMEOUT) {
@@ -130,18 +101,22 @@ export default function AddressMapEditor({
     setIsSearching(true);
     try {
       const result = await geocodeSingleAddress(searchQuery);
-      if (result && mapRef.current && markerRef.current) {
+      if (result) {
         const newLat = parseFloat(result.lat);
         const newLon = parseFloat(result.lon);
-        mapRef.current.setCenter([newLon, newLat]);
-        markerRef.current.setLngLat([newLon, newLat]);
+        setMarkerPosition({ lat: newLat, lng: newLon });
+        setMapCenter({ lat: newLat, lng: newLon });
         toast.success(`Endereço encontrado: ${result.display_name}`);
       } else {
-        toast.error("Não foi possível encontrar o endereço. Tente ser mais específico.");
+        toast.error(
+          "Não foi possível encontrar o endereço. Tente ser mais específico."
+        );
       }
     } catch (error) {
       console.error("Error searching address:", error);
-      toast.error("Erro ao buscar endereço. Verifique sua conexão ou tente novamente.");
+      toast.error(
+        "Erro ao buscar endereço. Verifique sua conexão ou tente novamente."
+      );
     } finally {
       setIsSearching(false);
     }
@@ -156,7 +131,6 @@ export default function AddressMapEditor({
         </h2>
         <p className="text-sm text-muted-foreground mb-4">{addressName}</p>
 
-        {/* New search input field */}
         <div className="flex gap-2 mb-4">
           <Input
             type="text"
@@ -164,7 +138,7 @@ export default function AddressMapEditor({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 handleSearchAddress();
               }
             }}
@@ -179,10 +153,24 @@ export default function AddressMapEditor({
           </Button>
         </div>
 
-        <div
-          ref={mapContainer}
-          className="w-full h-[400px] rounded-lg overflow-hidden border border-primary/30 shadow-inner"
-        />
+        <div className="w-full h-[400px] rounded-lg overflow-hidden border border-primary/30 shadow-inner">
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={mapCenter}
+            zoom={16}
+            options={{
+              streetViewControl: false,
+              mapTypeControl: false,
+              fullscreenControl: false,
+            }}
+          >
+            <Marker
+              position={markerPosition}
+              draggable={true}
+              onDragEnd={handleMarkerDragEnd}
+            />
+          </GoogleMap>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           <Button
@@ -224,5 +212,13 @@ export default function AddressMapEditor({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AddressMapEditor(props: AddressMapEditorProps) {
+  return (
+    <GoogleMapsLoader>
+      <AddressMapEditorContent {...props} />
+    </GoogleMapsLoader>
   );
 }

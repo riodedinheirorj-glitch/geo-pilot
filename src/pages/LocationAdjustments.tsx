@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,26 +6,38 @@ import { MapPin, ArrowLeft, CheckCircle2, Locate, Loader2 } from "lucide-react";
 import { ProcessedAddress, reverseGeocodeAddress } from "@/lib/nominatim-service";
 import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
-import maplibregl from 'maplibre-gl';
+import { GoogleMap, Marker } from "@react-google-maps/api";
 import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog";
-import { throttle } from "@/lib/utils";
+import GoogleMapsLoader from "@/components/GoogleMapsLoader";
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
   totalOriginalSequences: number;
 }
 
-export default function LocationAdjustments() {
+interface MarkerData {
+  index: number;
+  position: { lat: number; lng: number };
+  originalPosition: { lat: number; lng: number };
+  color: string;
+}
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "400px",
+};
+
+function LocationAdjustmentsContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initialProcessedData, totalOriginalSequences } = (location.state || {}) as LocationAdjustmentsState;
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const markers = useRef<{ marker: maplibregl.Marker; index: number }[]>([]);
+  const [markersData, setMarkersData] = useState<MarkerData[]>([]);
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [mapCenter, setMapCenter] = useState({ lat: -23.55052, lng: -46.633309 });
+  const [mapZoom, setMapZoom] = useState(13);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogAddressDetails, setDialogAddressDetails] = useState<{
@@ -37,8 +49,6 @@ export default function LocationAdjustments() {
     originalLng: number;
   } | null>(null);
 
-  const draggingMarkerOriginalCoords = useRef<{ lat: number; lng: number } | null>(null);
-
   useEffect(() => {
     if (!initialProcessedData || initialProcessedData.length === 0) {
       toast.error("Nenhum dado de endereço para ajustar. Por favor, faça o upload de uma planilha.");
@@ -46,185 +56,94 @@ export default function LocationAdjustments() {
     }
   }, [initialProcessedData, navigate]);
 
-  // Centraliza a lógica de seleção/desseleção de marcadores
   useEffect(() => {
-    markers.current.forEach(({ marker, index }) => {
-      if (index === selectedMarkerIndex) {
-        marker.setDraggable(true);
-        marker.getPopup()?.addTo(map.current!);
-        marker.getElement().classList.add('selected-marker');
-      } else {
-        marker.setDraggable(false);
-        marker.getPopup()?.remove();
-        marker.getElement().classList.remove('selected-marker');
-      }
-    });
-  }, [selectedMarkerIndex, addresses]); // Dependência 'addresses' para re-renderizar se os dados mudarem
+    if (addresses.length === 0) return;
 
-  const handleMarkerClick = (clickedIndex: number) => {
-    setSelectedMarkerIndex(prevIndex => {
-      // Se um pino diferente for clicado enquanto outro já está selecionado
-      if (prevIndex !== null && prevIndex !== clickedIndex) {
-        toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
-        return prevIndex; // Mantém o pino anterior selecionado
-      }
+    const newMarkersData: MarkerData[] = [];
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
 
-      // Se o pino atualmente selecionado for clicado novamente (desselecionar)
-      if (prevIndex === clickedIndex) {
-        toast.info("Seleção de endereço cancelada.");
-        return null; // Desseleciona
-      }
-
-      // Se nenhum pino estiver selecionado, seleciona o pino clicado
-      toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
-      return clickedIndex;
-    });
-  };
-
-  const handleMapClick = () => {
-    setSelectedMarkerIndex(null); // Desseleciona qualquer pino ao clicar no mapa
-  };
-
-  useEffect(() => {
-    if (!mapContainer.current || addresses.length === 0) return;
-    if (map.current) return;
-
-    // Estilo básico do OpenStreetMap
-    const osmStyle: maplibregl.StyleSpecification = {
-      version: 8 as const,
-      sources: {
-        osm: {
-          type: 'raster',
-          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '© OpenStreetMap contributors'
-        }
-      },
-      layers: [{
-        id: 'osm',
-        type: 'raster',
-        source: 'osm'
-      }]
-    };
-
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: osmStyle,
-      center: [-46.633309, -23.55052],
-      zoom: 13
-    });
-
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    const bounds = new maplibregl.LngLatBounds();
-    
     addresses.forEach((address, index) => {
-      const lat = parseFloat(address.latitude || '-23.55052');
-      const lng = parseFloat(address.longitude || '-46.633309');
+      const lat = parseFloat(address.latitude || "-23.55052");
+      const lng = parseFloat(address.longitude || "-46.633309");
 
       if (isNaN(lat) || isNaN(lng)) return;
 
-      const markerColor = 
-        address.status === 'valid' ? '#10b981' :
-        address.status === 'corrected' || address.status === 'atualizado' ? '#3b82f6' :
-        '#ef4444';
+      const color =
+        address.status === "valid" ? "#10b981" :
+        address.status === "corrected" || address.status === "atualizado" ? "#3b82f6" :
+        "#ef4444";
 
-      const popup = new maplibregl.Popup({ anchor: 'bottom' }).setHTML(`
-        <div class="p-2 bg-white rounded-md shadow-md">
-          <p class="font-semibold text-base text-black">${address.correctedAddress || address.originalAddress}</p>
-          <p class="text-sm text-gray-800 mt-1">Clique para selecionar e arrastar</p>
-        </div>
-      `);
-
-      const marker = new maplibregl.Marker({
-        color: markerColor,
-        draggable: false // Inicia não arrastável, controlado pelo useEffect
-      })
-        .setLngLat([lng, lat])
-        .setPopup(popup)
-        .addTo(map.current!);
-
-      marker.getElement().addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleMarkerClick(index);
+      newMarkersData.push({
+        index,
+        position: { lat, lng },
+        originalPosition: { lat, lng },
+        color,
       });
 
-      marker.on('dragstart', () => {
-        const currentLngLat = marker.getLngLat();
-        draggingMarkerOriginalCoords.current = { lat: currentLngLat.lat, lng: currentLngLat.lng };
-        popup.setHTML('<div class="p-2 text-black">Arraste para a nova posição...</div>');
-      });
-
-      const throttledUpdate = throttle(async (lngLat: maplibregl.LngLat) => {
-        const result = await reverseGeocodeAddress(lngLat.lat, lngLat.lng);
-        if (result?.display_name) {
-          popup.setHTML(`<div class="p-2 text-black">${result.display_name}</div>`);
-        }
-      }, 750);
-
-      marker.on('drag', () => {
-        const lngLat = marker.getLngLat();
-        throttledUpdate(lngLat);
-      });
-
-      marker.on('dragend', async () => {
-        const newLngLat = marker.getLngLat();
-        const originalCoords = draggingMarkerOriginalCoords.current;
-
-        popup.setHTML('<div class="p-2 text-black animate-pulse">Buscando endereço...</div>');
-
-        const reverseGeocodeResult = await reverseGeocodeAddress(newLngLat.lat, newLngLat.lng);
-        const originalAddressName = addresses[index].correctedAddress || addresses[index].originalAddress;
-        const foundAddressName = reverseGeocodeResult?.display_name || originalAddressName;
-
-        let popupContent;
-        if (reverseGeocodeResult?.display_name) {
-          popupContent = `<p class="font-semibold text-base text-black">${reverseGeocodeResult.display_name}</p>`;
-        } else {
-          popupContent = `
-            <p class="font-semibold text-base text-orange-600">Não foi possível identificar o endereço.</p>
-            <p class="text-sm text-gray-800 mt-1">A posição será salva para: "${originalAddressName}"</p>
-          `;
-        }
-
-        popup.setHTML(`
-          <div class="p-2 bg-white rounded-md shadow-md">
-            ${popupContent}
-            <p class="text-sm text-gray-800 mt-1">Confirme para salvar esta posição.</p>
-          </div>
-        `);
-
-        if (originalCoords) {
-          setDialogAddressDetails({
-            index,
-            addressName: foundAddressName,
-            newLat: newLngLat.lat,
-            newLng: newLngLat.lng,
-            originalLat: originalCoords.lat,
-            originalLng: originalCoords.lng,
-          });
-          setShowConfirmDialog(true);
-        }
-        draggingMarkerOriginalCoords.current = null;
-      });
-
-      markers.current.push({ marker, index });
-      bounds.extend([lng, lat]);
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
     });
 
-    if (markers.current.length > 0) {
-      map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+    setMarkersData(newMarkersData);
+
+    if (newMarkersData.length > 0) {
+      const centerLat = (minLat + maxLat) / 2;
+      const centerLng = (minLng + maxLng) / 2;
+      setMapCenter({ lat: centerLat, lng: centerLng });
     }
+  }, [addresses]);
 
-    map.current.on('click', handleMapClick);
+  const handleMarkerClick = useCallback((clickedIndex: number) => {
+    setSelectedMarkerIndex(prevIndex => {
+      if (prevIndex !== null && prevIndex !== clickedIndex) {
+        toast.info("Finalize ou cancele a seleção do pino atual antes de selecionar outro.");
+        return prevIndex;
+      }
+      if (prevIndex === clickedIndex) {
+        toast.info("Seleção de endereço cancelada.");
+        return null;
+      }
+      toast.info(`Endereço selecionado: ${addresses[clickedIndex].correctedAddress || addresses[clickedIndex].originalAddress}. Agora você pode arrastar.`);
+      return clickedIndex;
+    });
+  }, [addresses]);
 
-    return () => {
-      markers.current.forEach(({ marker }) => marker.remove());
-      markers.current = [];
-      map.current?.remove();
-      map.current = null;
-    };
-  }, [addresses.length]);
+  const handleMapClick = useCallback(() => {
+    setSelectedMarkerIndex(null);
+  }, []);
+
+  const handleMarkerDragEnd = useCallback(async (index: number, e: google.maps.MapMouseEvent) => {
+    if (!e.latLng) return;
+
+    const newLat = e.latLng.lat();
+    const newLng = e.latLng.lng();
+
+    const markerData = markersData.find(m => m.index === index);
+    if (!markerData) return;
+
+    const reverseGeocodeResult = await reverseGeocodeAddress(newLat, newLng);
+    const originalAddressName = addresses[index].correctedAddress || addresses[index].originalAddress;
+    const foundAddressName = reverseGeocodeResult?.display_name || originalAddressName;
+
+    setDialogAddressDetails({
+      index,
+      addressName: foundAddressName,
+      newLat,
+      newLng,
+      originalLat: markerData.originalPosition.lat,
+      originalLng: markerData.originalPosition.lng,
+    });
+    setShowConfirmDialog(true);
+
+    // Update marker position temporarily
+    setMarkersData(prev =>
+      prev.map(m =>
+        m.index === index ? { ...m, position: { lat: newLat, lng: newLng } } : m
+      )
+    );
+  }, [markersData, addresses]);
 
   const handleUseMyLocation = () => {
     if (selectedMarkerIndex === null) {
@@ -238,31 +157,36 @@ export default function LocationAdjustments() {
     }
 
     setIsLocating(true);
-    const markerData = markers.current.find(m => m.index === selectedMarkerIndex);
+    const markerData = markersData.find(m => m.index === selectedMarkerIndex);
     if (!markerData) {
       setIsLocating(false);
       return;
     }
-    const { marker, index } = markerData;
-    const originalLngLat = marker.getLngLat();
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
-        marker.setLngLat([longitude, latitude]);
-        map.current?.flyTo({ center: [longitude, latitude], zoom: 16 });
+
+        setMarkersData(prev =>
+          prev.map(m =>
+            m.index === selectedMarkerIndex
+              ? { ...m, position: { lat: latitude, lng: longitude } }
+              : m
+          )
+        );
+        setMapCenter({ lat: latitude, lng: longitude });
+        setMapZoom(16);
 
         const reverseGeocodeResult = await reverseGeocodeAddress(latitude, longitude);
         const foundAddressName = reverseGeocodeResult?.display_name || "Sua Localização Atual";
 
         setDialogAddressDetails({
-          index,
+          index: selectedMarkerIndex,
           addressName: foundAddressName,
           newLat: latitude,
           newLng: longitude,
-          originalLat: originalLngLat.lat,
-          originalLng: originalLngLat.lng,
+          originalLat: markerData.originalPosition.lat,
+          originalLng: markerData.originalPosition.lng,
         });
         setShowConfirmDialog(true);
         setIsLocating(false);
@@ -293,10 +217,10 @@ export default function LocationAdjustments() {
           ...newAddresses[index],
           latitude: newLat.toFixed(6),
           longitude: newLng.toFixed(6),
-          status: 'atualizado' as const,
-          note: 'Ajustado no mapa',
+          status: "atualizado" as const,
+          note: "Ajustado no mapa",
           learned: true,
-          correctedAddress: finalAddressName, // Atualiza o endereço corrigido com o editado/confirmado
+          correctedAddress: finalAddressName,
         };
         newAddresses[index] = updatedAddress;
 
@@ -305,29 +229,60 @@ export default function LocationAdjustments() {
 
         return newAddresses;
       });
+
+      // Update original position after save
+      setMarkersData(prev =>
+        prev.map(m =>
+          m.index === index
+            ? { ...m, originalPosition: { lat: newLat, lng: newLng }, color: "#3b82f6" }
+            : m
+        )
+      );
+
       toast.success("Localização atualizada e salva para aprendizado!");
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    setSelectedMarkerIndex(null); // Desseleciona o pino após salvar
+    setSelectedMarkerIndex(null);
   };
 
   const handleCancelSave = () => {
     if (dialogAddressDetails) {
       const { index, originalLat, originalLng } = dialogAddressDetails;
-      const markerToRevert = markers.current.find(m => m.index === index)?.marker;
-      if (markerToRevert) {
-        markerToRevert.setLngLat([originalLng, originalLat]);
-      }
+      setMarkersData(prev =>
+        prev.map(m =>
+          m.index === index
+            ? { ...m, position: { lat: originalLat, lng: originalLng } }
+            : m
+        )
+      );
       toast.info("Ajuste de localização cancelado.");
     }
     setShowConfirmDialog(false);
     setDialogAddressDetails(null);
-    setSelectedMarkerIndex(null); // Desseleciona o pino após cancelar
+    setSelectedMarkerIndex(null);
   };
 
   const handleFinishAdjustments = () => {
-    navigate("/", { state: { adjustedData: addresses, fromAdjustments: true, totalOriginalSequences: totalOriginalSequences } });
+    navigate("/", {
+      state: {
+        adjustedData: addresses,
+        fromAdjustments: true,
+        totalOriginalSequences: totalOriginalSequences,
+      },
+    });
+  };
+
+  const getMarkerIcon = (color: string, isSelected: boolean) => {
+    const scale = isSelected ? 1.3 : 1;
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: isSelected ? "#fbbf24" : color,
+      fillOpacity: 1,
+      strokeColor: isSelected ? "#f59e0b" : "#ffffff",
+      strokeWeight: isSelected ? 3 : 2,
+      scale: 10 * scale,
+    };
   };
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -342,7 +297,12 @@ export default function LocationAdjustments() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex flex-col sm:flex-row items-center sm:justify-between mb-6 gap-4">
-          <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2 w-full sm:w-auto" size="sm">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 w-full sm:w-auto"
+            size="sm"
+          >
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Button>
@@ -371,7 +331,33 @@ export default function LocationAdjustments() {
           </div>
 
           <div className="mb-6 rounded-lg overflow-hidden border-2 border-primary/30">
-            <div ref={mapContainer} className="h-[400px] w-full" />
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={mapCenter}
+              zoom={mapZoom}
+              onClick={handleMapClick}
+              options={{
+                streetViewControl: false,
+                mapTypeControl: false,
+                fullscreenControl: false,
+              }}
+            >
+              {markersData.map((markerData) => (
+                <Marker
+                  key={markerData.index}
+                  position={markerData.position}
+                  draggable={selectedMarkerIndex === markerData.index}
+                  onClick={() => handleMarkerClick(markerData.index)}
+                  onDragEnd={(e) => handleMarkerDragEnd(markerData.index, e)}
+                  icon={getMarkerIcon(markerData.color, selectedMarkerIndex === markerData.index)}
+                  animation={
+                    selectedMarkerIndex === markerData.index
+                      ? google.maps.Animation.BOUNCE
+                      : undefined
+                  }
+                />
+              ))}
+            </GoogleMap>
           </div>
 
           <div className="flex justify-end mt-4">
@@ -409,5 +395,13 @@ export default function LocationAdjustments() {
         />
       )}
     </div>
+  );
+}
+
+export default function LocationAdjustments() {
+  return (
+    <GoogleMapsLoader>
+      <LocationAdjustmentsContent />
+    </GoogleMapsLoader>
   );
 }
