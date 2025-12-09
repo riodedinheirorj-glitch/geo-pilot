@@ -11,3 +11,12 @@ verify_jwt = true
 
 [functions.add-credits]
 verify_jwt = true
+
+[functions.batch-geocode]
+verify_jwt = true
+
+[functions.single-geocode]
+verify_jwt = true
+
+[functions.reverse-geocode]
+verify_jwt = true
