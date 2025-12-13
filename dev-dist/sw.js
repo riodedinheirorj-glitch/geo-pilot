@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-1b3d9405'], (function (workbox) { 'use strict';
+define(['./workbox-c46fe8f7'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -82,30 +82,21 @@ define(['./workbox-1b3d9405'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.5iuvr7me5c8"
+    "revision": "0.grsjhci98cg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
+  workbox.registerRoute(/^https:\/\/(a|b|c)\.tile\.openstreetmap\.org\/.*/, new workbox.NetworkOnly(), 'GET');
+  workbox.registerRoute(/^https:\/\/tiles\.stadiamaps\.com\/.*/, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(({
-    url
-  }) => url.origin === self.location.origin, new workbox.NetworkFirst({
+    request
+  }) => ["document", "script", "style", "font"].includes(request.destination), new workbox.NetworkFirst({
     "cacheName": "app-cache",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 100,
       maxAgeSeconds: 604800
-    }), new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
-    })]
-  }), 'GET');
-  workbox.registerRoute(({
-    url
-  }) => url.origin === "https://tiles.stadiamaps.com", new workbox.CacheFirst({
-    "cacheName": "stadia-tiles-cache",
-    plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 50,
-      maxAgeSeconds: 2592000
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]
     })]
