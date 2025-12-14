@@ -26,7 +26,6 @@ const translateSupabaseError = (errorMessage: string): string => {
     "Token has expired or is invalid": "Token expirado ou inválido",
     "New password should be different from the old password": "A nova senha deve ser diferente da senha antiga",
   };
-
   return errorMap[errorMessage] || errorMessage;
 };
 
@@ -68,25 +67,41 @@ export default function Auth() {
 
   // Detectar recuperação de senha
   useEffect(() => {
+    const checkForPasswordRecovery = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const token_hash = params.get("token_hash");
+      const type = params.get("type");
+      
+      if (token_hash && type === "recovery") {
+        // Verificar se o token é válido
+        const { data, error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash
+        });
+        
+        if (error) {
+          console.error("Erro ao verificar token de recuperação:", error);
+          toast.error("Link de recuperação inválido ou expirado");
+          // Limpar parâmetros da URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+        
+        // Se o token for válido, mudar para o modo de atualização de senha
+        setMode("update-password");
+        // Limpar parâmetros da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    checkForPasswordRecovery();
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth.tsx: Auth event:", event, "Session:", session);
       if (event === "PASSWORD_RECOVERY") {
         setMode("update-password");
       }
     });
-
-    // Processar sessão e verificar se há token de recuperação
-    const checkRecoveryToken = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("Auth.tsx: Session data on load:", session);
-      
-      if (session?.user) {
-        // Se há sessão válida, mostra o formulário de atualização
-        setMode("update-password");
-      }
-    };
-
-    checkRecoveryToken();
 
     return () => subscription?.unsubscribe();
   }, []);
@@ -112,7 +127,6 @@ export default function Auth() {
         setLoadingAdminCheck(false);
       }
     };
-
     checkAdminStatus();
   }, []);
 
@@ -120,7 +134,12 @@ export default function Auth() {
   const triggerConfetti = () => {
     const duration = 3 * 1000;
     const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 999999 };
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 999999
+    };
 
     const randomInRange = (min: number, max: number) => {
       return Math.random() * (max - min) + min;
@@ -128,11 +147,9 @@ export default function Auth() {
 
     const interval: any = setInterval(() => {
       const timeLeft = animationEnd - Date.now();
-
       if (timeLeft <= 0) {
         return clearInterval(interval);
       }
-
       const particleCount = 50 * (timeLeft / duration);
       confetti({
         ...defaults,
@@ -149,7 +166,6 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     // Validate input
     try {
       authSchema.parse({ email, password });
@@ -159,9 +175,8 @@ export default function Auth() {
       }
       return;
     }
-    
-    setLoading(true);
 
+    setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -176,7 +191,6 @@ export default function Auth() {
       const destinationRoute = roles ? "/admin" : "/";
 
       toast.success("Login realizado com sucesso!");
-      
       setTimeout(() => {
         navigate(destinationRoute);
       }, 100);
@@ -190,7 +204,6 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     // Validate input
     const phoneDigits = phone.replace(/\D/g, "");
     try {
@@ -201,9 +214,8 @@ export default function Auth() {
       }
       return;
     }
-    
-    setLoading(true);
 
+    setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -213,7 +225,7 @@ export default function Auth() {
             full_name: fullName,
             phone: phoneDigits,
           },
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/auth`,
         },
       });
 
@@ -226,13 +238,12 @@ export default function Auth() {
         await addInitialCredits(newUserId, initialCreditsAmount);
         setWelcomeCredits(initialCreditsAmount);
       }
-      
+
       // Disparar confetes e mostrar popup de boas-vindas
       triggerConfetti();
       setShowWelcome(true);
-
       toast.success("Conta criada com sucesso! Você já pode fazer login.");
-      
+
       // Aguardar um pouco antes de mudar para login
       setTimeout(() => {
         setMode("login");
@@ -247,7 +258,6 @@ export default function Auth() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     // Validate email
     try {
       z.object({ email: z.string().trim().email("Email inválido") }).parse({ email });
@@ -257,9 +267,8 @@ export default function Auth() {
       }
       return;
     }
-    
-    setLoading(true);
 
+    setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth`,
@@ -279,20 +288,18 @@ export default function Auth() {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     // Validate passwords
     if (password.length < 6) {
       toast.error("Senha deve ter no mínimo 6 caracteres");
       return;
     }
-    
+
     if (password !== confirmPassword) {
       toast.error("As senhas não coincidem");
       return;
     }
-    
-    setLoading(true);
 
+    setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({
         password: password,
@@ -314,264 +321,260 @@ export default function Auth() {
 
   return (
     <>
-      <WelcomeDialog 
-        open={showWelcome} 
-        onClose={() => setShowWelcome(false)} 
-        credits={welcomeCredits}
-      />
-      <AdminSetupDialog
-        open={showAdminSetup}
-        onOpenChange={setShowAdminSetup}
-      />
+      <WelcomeDialog open={showWelcome} onClose={() => setShowWelcome(false)} credits={welcomeCredits} />
+      <AdminSetupDialog open={showAdminSetup} onOpenChange={setShowAdminSetup} />
+
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">
-        <div className="text-center space-y-2">
-          <img src="/rotasmart-logo.png" alt="RotaSmart Logo" className="h-[100px] sm:h-[150px] w-auto mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            {mode === "login" && "Entre na sua conta"}
-            {mode === "signup" && "Crie sua conta"}
-            {mode === "reset" && "Recuperar senha"}
-            {mode === "update-password" && "Defina sua nova senha"}
-          </p>
-        </div>
+          <div className="text-center space-y-2">
+            <img src="/rotasmart-logo.png" alt="RotaSmart Logo" className="h-[100px] sm:h-[150px] w-auto mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              {mode === "login" && "Entre na sua conta"}
+              {mode === "signup" && "Crie sua conta"}
+              {mode === "reset" && "Recuperar senha"}
+              {mode === "update-password" && "Defina sua nova senha"}
+            </p>
+          </div>
 
-        {mode === "login" && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative"> {/* Adicionado div para posicionamento do botão */}
+          {mode === "login" && (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"} // Alterna o tipo do input
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                  onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
               </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
-        )}
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative">
+                  {/* Adicionado div para posicionamento do botão */}
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"} // Alterna o tipo do input
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Entrando..." : "Entrar"}
+              </Button>
+            </form>
+          )}
 
-        {mode === "signup" && (
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nome completo</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Seu nome"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="(11) 99999-9999"
-                value={formatPhone(phone)}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative"> {/* Adicionado div para posicionamento do botão */}
+          {mode === "signup" && (
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Nome completo</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"} // Alterna o tipo do input
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="fullName"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   required
-                  minLength={6}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                  onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
               </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Criando conta..." : "Criar conta"}
-            </Button>
-          </form>
-        )}
-
-        {mode === "reset" && (
-          <form onSubmit={handleReset} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Enviando..." : "Enviar email de recuperação"}
-            </Button>
-          </form>
-        )}
-
-        {mode === "update-password" && (
-          <form onSubmit={handleUpdatePassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-password">Nova senha</Label>
-              <div className="relative">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone</Label>
                 <Input
-                  id="new-password"
+                  id="phone"
+                  type="tel"
+                  placeholder="(11) 99999-9999"
+                  value={formatPhone(phone)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative">
+                  {/* Adicionado div para posicionamento do botão */}
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"} // Alterna o tipo do input
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Criando conta..." : "Criar conta"}
+              </Button>
+            </form>
+          )}
+
+          {mode === "reset" && (
+            <form onSubmit={handleReset} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Enviando..." : "Enviar email de recuperação"}
+              </Button>
+            </form>
+          )}
+
+          {mode === "update-password" && (
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirmar senha</Label>
+                <Input
+                  id="confirm-password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   minLength={6}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirmar senha</Label>
-              <Input
-                id="confirm-password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Atualizando..." : "Atualizar senha"}
-            </Button>
-          </form>
-        )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Atualizando..." : "Atualizar senha"}
+              </Button>
+            </form>
+          )}
 
-        <div className="text-center space-y-2 text-sm">
-          {mode === "login" && (
-            <>
-              <button
-                type="button"
-                onClick={() => setMode("reset")}
-                className="text-primary hover:underline block relative z-10"
-              >
-                Esqueceu sua Senha ?
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("signup")}
-                className="text-primary hover:underline block relative z-10"
-              >
-                Não tem conta? Criar uma
-              </button>
-              {!adminExists && !loadingAdminCheck && (
+          <div className="text-center space-y-2 text-sm">
+            {mode === "login" && (
+              <>
                 <button
                   type="button"
-                  onClick={() => setShowAdminSetup(true)}
-                  className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
+                  onClick={() => setMode("reset")}
+                  className="text-primary hover:underline block relative z-10"
                 >
-                  Setup Admin
+                  Esqueceu sua Senha ?
                 </button>
-              )}
-            </>
-          )}
-          {mode === "signup" && (
-            <button
-              type="button"
-              onClick={() => setMode("login")}
-              className="text-primary hover:underline relative z-10"
-            >
-              Já tem conta? Entrar
-            </button>
-          )}
-          {mode === "reset" && (
-            <button
-              type="button"
-              onClick={() => setMode("login")}
-              className="text-primary hover:underline relative z-10"
-            >
-              Voltar para login
-            </button>
-          )}
-          {mode === "update-password" && (
-            <button
-              type="button"
-              onClick={() => setMode("login")}
-              className="text-primary hover:underline relative z-10"
-            >
-              Voltar para login
-            </button>
-          )}
-        </div>
-      </Card>
-    </div>
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className="text-primary hover:underline block relative z-10"
+                >
+                  Não tem conta? Criar uma
+                </button>
+                {!adminExists && !loadingAdminCheck && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminSetup(true)}
+                    className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
+                  >
+                    Setup Admin
+                  </button>
+                )}
+              </>
+            )}
+            {mode === "signup" && (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-primary hover:underline relative z-10"
+              >
+                Já tem conta? Entrar
+              </button>
+            )}
+            {mode === "reset" && (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-primary hover:underline relative z-10"
+              >
+                Voltar para login
+              </button>
+            )}
+            {mode === "update-password" && (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-primary hover:underline relative z-10"
+              >
+                Voltar para login
+              </button>
+            )}
+          </div>
+        </Card>
+      </div>
     </>
   );
 }
