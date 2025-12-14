@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { GoogleMap, Marker } from "@react-google-maps/api";
+import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { MapPin, Locate, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ function AddressMapEditorContent({
   const [isLocating, setIsLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [showInfoWindow, setShowInfoWindow] = useState(true);
 
   const handleMarkerDragEnd = useCallback(
     (e: google.maps.MapMouseEvent) => {
@@ -45,6 +46,7 @@ function AddressMapEditorContent({
         const newLat = e.latLng.lat();
         const newLng = e.latLng.lng();
         setMarkerPosition({ lat: newLat, lng: newLng });
+        setShowInfoWindow(true);
       }
     },
     []
@@ -67,6 +69,7 @@ function AddressMapEditorContent({
         const { latitude, longitude } = position.coords;
         setMarkerPosition({ lat: latitude, lng: longitude });
         setMapCenter({ lat: latitude, lng: longitude });
+        setShowInfoWindow(true);
         toast.success("Localização atualizada para sua posição GPS!");
         setIsLocating(false);
       },
@@ -106,6 +109,7 @@ function AddressMapEditorContent({
         const newLon = parseFloat(result.lon);
         setMarkerPosition({ lat: newLat, lng: newLon });
         setMapCenter({ lat: newLat, lng: newLon });
+        setShowInfoWindow(true);
         toast.success(`Endereço encontrado: ${result.display_name}`);
       } else {
         toast.error(
@@ -125,7 +129,7 @@ function AddressMapEditorContent({
   const getMarkerIcon = (color: string, isSelected: boolean) => {
     const scale = isSelected ? 1.3 : 1;
     return {
-      path: google.maps.SymbolPath.DROP, // Alterado para formato de gota
+      path: google.maps.SymbolPath.DROP,
       fillColor: isSelected ? "#fbbf24" : color,
       fillOpacity: 1,
       strokeColor: isSelected ? "#f59e0b" : "#ffffff",
@@ -169,7 +173,7 @@ function AddressMapEditorContent({
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             center={mapCenter}
-            zoom={15} // Zoom inicial aumentado para 15
+            zoom={15}
             options={{
               streetViewControl: false,
               mapTypeControl: false,
@@ -180,8 +184,20 @@ function AddressMapEditorContent({
               position={markerPosition}
               draggable={true}
               onDragEnd={handleMarkerDragEnd}
-              icon={getMarkerIcon("#10b981", true)} // Usando a função para o ícone
+              onClick={() => setShowInfoWindow(true)}
+              icon={getMarkerIcon("#10b981", true)}
             />
+            {showInfoWindow && (
+              <InfoWindow
+                position={markerPosition}
+                onCloseClick={() => setShowInfoWindow(false)}
+              >
+                <div className="p-2">
+                  <h3 className="font-semibold text-sm">{addressName}</h3>
+                  <p className="text-xs text-gray-600 mt-1">Arraste para ajustar</p>
+                </div>
+              </InfoWindow>
+            )}
           </GoogleMap>
         </div>
 
