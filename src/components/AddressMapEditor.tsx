@@ -13,6 +13,7 @@ interface AddressMapEditorProps {
   onSave: (coords: { lat: number; lng: number }) => void;
   onClose: () => void;
   addressName: string;
+  packageId?: string; // Adicionando ID do pacote
 }
 
 const mapContainerStyle = {
@@ -26,6 +27,7 @@ function AddressMapEditorContent({
   onSave,
   onClose,
   addressName,
+  packageId,
 }: AddressMapEditorProps) {
   const [markerPosition, setMarkerPosition] = useState({
     lat: initialLat,
@@ -194,7 +196,10 @@ function AddressMapEditorContent({
               >
                 <div className="p-2">
                   <h3 className="font-bold text-base text-gray-800">{addressName}</h3>
-                  <p className="text-sm text-gray-700 mt-1">Arraste para ajustar</p>
+                  {packageId && (
+                    <p className="text-sm text-gray-700 mt-1">Pacote: {packageId}</p>
+                  )}
+                  <p className="text-xs text-gray-600 mt-1">Arraste para ajustar</p>
                 </div>
               </InfoWindow>
             )}

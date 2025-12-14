@@ -21,6 +21,7 @@ interface MarkerData {
   originalPosition: { lat: number; lng: number };
   color: string;
   addressName: string;
+  packageId: string; // Adicionando ID do pacote
 }
 
 const mapContainerStyle = {
@@ -53,6 +54,7 @@ function LocationAdjustmentsContent() {
   const [infoWindowData, setInfoWindowData] = useState<{
     position: { lat: number; lng: number };
     content: string;
+    packageId: string;
     index: number;
   } | null>(null);
 
@@ -82,6 +84,9 @@ function LocationAdjustmentsContent() {
 
       // Extrair nome do endereço para mostrar no InfoWindow
       const addressName = address.correctedAddress || address.originalAddress || `Endereço ${index + 1}`;
+      
+      // Extrair ID do pacote
+      const packageId = address.sequence || address.Sequence || `#${index + 1}`;
 
       newMarkersData.push({
         index,
@@ -89,6 +94,7 @@ function LocationAdjustmentsContent() {
         originalPosition: { lat, lng },
         color,
         addressName,
+        packageId, // Adicionando ID do pacote
       });
 
       minLat = Math.min(minLat, lat);
@@ -163,6 +169,7 @@ function LocationAdjustmentsContent() {
       setInfoWindowData({
         position,
         content: markerData.addressName,
+        packageId: markerData.packageId,
         index
       });
     }
@@ -391,7 +398,8 @@ function LocationAdjustmentsContent() {
                 >
                   <div className="p-2">
                     <h3 className="font-bold text-base text-gray-800">{infoWindowData.content}</h3>
-                    <p className="text-sm text-gray-700 mt-1">Clique e arraste para mover</p>
+                    <p className="text-sm text-gray-700 mt-1">Pacote: {infoWindowData.packageId}</p>
+                    <p className="text-xs text-gray-600 mt-1">Clique e arraste para mover</p>
                   </div>
                 </InfoWindow>
               )}
