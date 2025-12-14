@@ -6,7 +6,7 @@ import { MapPin, ArrowLeft, CheckCircle2, Locate, Loader2 } from "lucide-react";
 import { ProcessedAddress, reverseGeocodeAddress } from "@/lib/nominatim-service";
 import { toast } from "sonner";
 import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
-import { GoogleMap, Marker } from "@react-google-maps/api";
+import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { ConfirmLocationSaveDialog } from "@/components/ConfirmLocationSaveDialog";
 import GoogleMapsLoader from "@/components/GoogleMapsLoader";
 
@@ -20,6 +20,7 @@ interface MarkerData {
   position: { lat: number; lng: number };
   originalPosition: { lat: number; lng: number };
   color: string;
+  addressName: string;
 }
 
 const mapContainerStyle = {
@@ -37,8 +38,7 @@ function LocationAdjustmentsContent() {
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [mapCenter, setMapCenter] = useState({ lat: -23.55052, lng: -46.633309 });
-  const [mapZoom, setMapZoom] = useState(15); // Zoom inicial aumentado para 15
-
+  const [mapZoom, setMapZoom] = useState(15);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogAddressDetails, setDialogAddressDetails] = useState<{
     index: number;
@@ -47,6 +47,13 @@ function LocationAdjustmentsContent() {
     newLng: number;
     originalLat: number;
     originalLng: number;
+  } | null>(null);
+  
+  // Novo estado para o InfoWindow
+  const [infoWindowData, setInfoWindowData] = useState<{
+    position: { lat: number; lng: number };
+    content: string;
+    index: number;
   } | null>(null);
 
   useEffect(() => {
@@ -73,11 +80,15 @@ function LocationAdjustmentsContent() {
         address.status === "corrected" || address.status === "atualizado" ? "#3b82f6" :
         "#ef4444";
 
+      // Extrair nome do endereço para mostrar no InfoWindow
+      const addressName = address.correctedAddress || address.originalAddress || `Endereço ${index + 1}`;
+
       newMarkersData.push({
         index,
         position: { lat, lng },
         originalPosition: { lat, lng },
         color,
+        addressName,
       });
 
       minLat = Math.min(minLat, lat);
@@ -112,6 +123,7 @@ function LocationAdjustmentsContent() {
 
   const handleMapClick = useCallback(() => {
     setSelectedMarkerIndex(null);
+    setInfoWindowData(null); // Fechar InfoWindow ao clicar no mapa
   }, []);
 
   const handleMarkerDragEnd = useCallback(async (index: number, e: google.maps.MapMouseEvent) => {
@@ -137,13 +149,24 @@ function LocationAdjustmentsContent() {
     });
     setShowConfirmDialog(true);
 
-    // Update marker position temporarily
     setMarkersData(prev =>
       prev.map(m =>
         m.index === index ? { ...m, position: { lat: newLat, lng: newLng } } : m
       )
     );
   }, [markersData, addresses]);
+
+  // Função para lidar com o clique no marker (mostrar InfoWindow)
+  const handleMarkerInfoClick = useCallback((index: number, position: { lat: number; lng: number }) => {
+    const markerData = markersData.find(m => m.index === index);
+    if (markerData) {
+      setInfoWindowData({
+        position,
+        content: markerData.addressName,
+        index
+      });
+    }
+  }, [markersData]);
 
   const handleUseMyLocation = () => {
     if (selectedMarkerIndex === null) {
@@ -230,7 +253,6 @@ function LocationAdjustmentsContent() {
         return newAddresses;
       });
 
-      // Update original position after save
       setMarkersData(prev =>
         prev.map(m =>
           m.index === index
@@ -276,7 +298,7 @@ function LocationAdjustmentsContent() {
   const getMarkerIcon = (color: string, isSelected: boolean) => {
     const scale = isSelected ? 1.3 : 1;
     return {
-      path: google.maps.SymbolPath.DROP, // Alterado para formato de gota
+      path: google.maps.SymbolPath.DROP,
       fillColor: isSelected ? "#fbbf24" : color,
       fillOpacity: 1,
       strokeColor: isSelected ? "#f59e0b" : "#ffffff",
@@ -347,7 +369,10 @@ function LocationAdjustmentsContent() {
                   key={markerData.index}
                   position={markerData.position}
                   draggable={selectedMarkerIndex === markerData.index}
-                  onClick={() => handleMarkerClick(markerData.index)}
+                  onClick={() => {
+                    handleMarkerClick(markerData.index);
+                    handleMarkerInfoClick(markerData.index, markerData.position);
+                  }}
                   onDragEnd={(e) => handleMarkerDragEnd(markerData.index, e)}
                   icon={getMarkerIcon(markerData.color, selectedMarkerIndex === markerData.index)}
                   animation={
@@ -357,6 +382,19 @@ function LocationAdjustmentsContent() {
                   }
                 />
               ))}
+              
+              {/* InfoWindow para mostrar detalhes do endereço */}
+              {infoWindowData && (
+                <InfoWindow
+                  position={infoWindowData.position}
+                  onCloseClick={() => setInfoWindowData(null)}
+                >
+                  <div className="p-2">
+                    <h3 className="font-semibold text-sm">{infoWindowData.content}</h3>
+                    <p className="text-xs text-gray-600 mt-1">Clique e arraste para mover</p>
+                  </div>
+                </InfoWindow>
+              )}
             </GoogleMap>
           </div>
 
