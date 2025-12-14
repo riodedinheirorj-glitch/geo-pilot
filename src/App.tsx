@@ -18,17 +18,24 @@ const queryClient = new QueryClient();
 
 function AuthEventBridge() {
   const navigate = useNavigate();
-
+  
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("App auth event:", event);
-      if (event === "PASSWORD_RECOVERY") {
+      
+      if (event === "SIGNED_IN") {
+        // Verificar se é admin
+        // Esta verificação será feita na página Index também
+      } else if (event === "SIGNED_OUT") {
+        navigate("/auth");
+      } else if (event === "PASSWORD_RECOVERY") {
         navigate("/auth");
       }
     });
 
     return () => subscription?.unsubscribe();
   }, [navigate]);
+
   return null;
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ const formatPhone = (value: string) => {
 
 export default function Auth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<"login" | "signup" | "reset" | "update-password">("login");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -65,46 +66,43 @@ export default function Auth() {
   const [adminExists, setAdminExists] = useState(true); // Assume admin exists until checked
   const [loadingAdminCheck, setLoadingAdminCheck] = useState(true);
 
-  // Detectar recuperação de senha
+  // Detectar recuperação de senha via Supabase
   useEffect(() => {
     const checkForPasswordRecovery = async () => {
+      // Verificar parâmetros da URL para recuperação de senha
       const params = new URLSearchParams(window.location.search);
-      const token_hash = params.get("token_hash");
       const type = params.get("type");
       
-      if (token_hash && type === "recovery") {
-        // Verificar se o token é válido
-        const { data, error } = await supabase.auth.verifyOtp({
-          type: "recovery",
-          token_hash
-        });
-        
-        if (error) {
-          console.error("Erro ao verificar token de recuperação:", error);
-          toast.error("Link de recuperação inválido ou expirado");
-          // Limpar parâmetros da URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return;
-        }
-        
-        // Se o token for válido, mudar para o modo de atualização de senha
+      if (type === "recovery") {
+        // Supabase irá lidar com a verificação do token automaticamente
+        // Mudar para modo de atualização de senha
         setMode("update-password");
-        // Limpar parâmetros da URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        toast.info("Defina sua nova senha");
+        return;
+      }
+      
+      // Verificar se usuário já está logado
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Verificar se é admin
+        const roles = await getUserRole(session.user.id);
+        const destinationRoute = roles ? "/admin" : "/";
+        navigate(destinationRoute);
       }
     };
 
     checkForPasswordRecovery();
     
+    // Listener para mudanças de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth.tsx: Auth event:", event, "Session:", session);
       if (event === "PASSWORD_RECOVERY") {
         setMode("update-password");
+        toast.info("Defina sua nova senha");
       }
     });
 
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   // Check if admin exists on component mount
   useEffect(() => {
@@ -242,7 +240,7 @@ export default function Auth() {
       // Disparar confetes e mostrar popup de boas-vindas
       triggerConfetti();
       setShowWelcome(true);
-      toast.success("Conta criada com sucesso! Você já pode fazer login.");
+      toast.success("Conta criada com sucesso! Verifique seu email para confirmar sua conta.");
 
       // Aguardar um pouco antes de mudar para login
       setTimeout(() => {
@@ -271,7 +269,7 @@ export default function Auth() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
       });
 
       if (error) throw error;
@@ -301,16 +299,21 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { data: { user }, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      toast.success("Senha atualizada com sucesso! Você já pode fazer login.");
-      setMode("login");
-      setPassword("");
-      setConfirmPassword("");
+      toast.success("Senha atualizada com sucesso!");
+      
+      // Após atualizar a senha, fazer logout e redirecionar para login
+      await supabase.auth.signOut();
+      
+      setTimeout(() => {
+        setMode("login");
+        toast.success("Senha atualizada com sucesso! Faça login com sua nova senha.");
+      }, 1500);
     } catch (error: any) {
       const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao atualizar senha";
       toast.error(errorMessage);
@@ -352,10 +355,9 @@ export default function Auth() {
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
-                  {/* Adicionado div para posicionamento do botão */}
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"} // Alterna o tipo do input
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -366,7 +368,7 @@ export default function Auth() {
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                    onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
+                    onClick={() => setShowPassword((prev) => !prev)}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -420,10 +422,9 @@ export default function Auth() {
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
-                  {/* Adicionado div para posicionamento do botão */}
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"} // Alterna o tipo do input
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -435,7 +436,7 @@ export default function Auth() {
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                    onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado
+                    onClick={() => setShowPassword((prev) => !prev)}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
