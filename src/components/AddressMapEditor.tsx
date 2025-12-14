@@ -193,8 +193,8 @@ function AddressMapEditorContent({
                 onCloseClick={() => setShowInfoWindow(false)}
               >
                 <div className="p-2">
-                  <h3 className="font-semibold text-sm">{addressName}</h3>
-                  <p className="text-xs text-gray-600 mt-1">Arraste para ajustar</p>
+                  <h3 className="font-bold text-base text-gray-800">{addressName}</h3>
+                  <p className="text-sm text-gray-700 mt-1">Arraste para ajustar</p>
                 </div>
               </InfoWindow>
             )}

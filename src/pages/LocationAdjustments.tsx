@@ -390,8 +390,8 @@ function LocationAdjustmentsContent() {
                   onCloseClick={() => setInfoWindowData(null)}
                 >
                   <div className="p-2">
-                    <h3 className="font-semibold text-sm">{infoWindowData.content}</h3>
-                    <p className="text-xs text-gray-600 mt-1">Clique e arraste para mover</p>
+                    <h3 className="font-bold text-base text-gray-800">{infoWindowData.content}</h3>
+                    <p className="text-sm text-gray-700 mt-1">Clique e arraste para mover</p>
                   </div>
                 </InfoWindow>
               )}
