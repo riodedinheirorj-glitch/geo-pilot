@@ -122,6 +122,18 @@ function AddressMapEditorContent({
     }
   };
 
+  const getMarkerIcon = (color: string, isSelected: boolean) => {
+    const scale = isSelected ? 1.3 : 1;
+    return {
+      path: google.maps.SymbolPath.DROP, // Alterado para formato de gota
+      fillColor: isSelected ? "#fbbf24" : color,
+      fillOpacity: 1,
+      strokeColor: isSelected ? "#f59e0b" : "#ffffff",
+      strokeWeight: isSelected ? 3 : 2,
+      scale: 10 * scale,
+    };
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-card p-6 rounded-xl w-full max-w-[600px] shadow-xl border border-primary/20">
@@ -157,7 +169,7 @@ function AddressMapEditorContent({
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             center={mapCenter}
-            zoom={16}
+            zoom={15} // Zoom inicial aumentado para 15
             options={{
               streetViewControl: false,
               mapTypeControl: false,
@@ -168,6 +180,7 @@ function AddressMapEditorContent({
               position={markerPosition}
               draggable={true}
               onDragEnd={handleMarkerDragEnd}
+              icon={getMarkerIcon("#10b981", true)} // Usando a função para o ícone
             />
           </GoogleMap>
         </div>

@@ -37,7 +37,7 @@ function LocationAdjustmentsContent() {
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [mapCenter, setMapCenter] = useState({ lat: -23.55052, lng: -46.633309 });
-  const [mapZoom, setMapZoom] = useState(13);
+  const [mapZoom, setMapZoom] = useState(15); // Zoom inicial aumentado para 15
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogAddressDetails, setDialogAddressDetails] = useState<{
@@ -276,7 +276,7 @@ function LocationAdjustmentsContent() {
   const getMarkerIcon = (color: string, isSelected: boolean) => {
     const scale = isSelected ? 1.3 : 1;
     return {
-      path: google.maps.SymbolPath.CIRCLE,
+      path: google.maps.SymbolPath.DROP, // Alterado para formato de gota
       fillColor: isSelected ? "#fbbf24" : color,
       fillOpacity: 1,
       strokeColor: isSelected ? "#f59e0b" : "#ffffff",
