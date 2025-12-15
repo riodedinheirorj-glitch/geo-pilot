@@ -90,7 +90,7 @@ export function InstallPromptDialog() {
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <img 
-              src="/rotasmart-logo-192x192.png" 
+              src="/icon-192.png" 
               alt="RotaSmart Logo" 
               className="h-16 w-16 rounded-full object-cover"
             />
