@@ -100,12 +100,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      external: [], // Removido '@react-google-maps/api' da lista de externals
+      external: [],
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
-          'vendor-map': ['maplibre-gl', 'leaflet', 'react-leaflet'],
+          'vendor-map': ['maplibre-gl', 'leaflet', 'react-leaflet', '@react-google-maps/api'],
           'vendor-xlsx': ['xlsx'],
           'vendor-query': ['@tanstack/react-query'],
         },
