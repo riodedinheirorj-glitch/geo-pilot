@@ -167,7 +167,7 @@ function LocationAdjustmentsContent() {
     const markerData = markersData.find(m => m.index === index);
     if (markerData) {
       setInfoWindowData({
-        position,
+        position: { lat: position.lat + 0.0005, lng: position.lng }, // Ajuste da latitude para mover acima
         content: markerData.addressName,
         packageId: markerData.packageId,
         index

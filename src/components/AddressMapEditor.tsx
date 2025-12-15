@@ -191,7 +191,7 @@ function AddressMapEditorContent({
             />
             {showInfoWindow && (
               <InfoWindow
-                position={markerPosition}
+                position={{ lat: markerPosition.lat + 0.0005, lng: markerPosition.lng }} // Ajuste da latitude para mover acima
                 onCloseClick={() => setShowInfoWindow(false)}
               >
                 <div className="p-2">
