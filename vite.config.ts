@@ -100,7 +100,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      external: [], // Removido '@react-google-maps/api' da lista de externals
+      external: ['@react-google-maps/api'], // Adicionado aqui
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
