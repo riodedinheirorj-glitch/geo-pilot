@@ -1,64 +1,32 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 interface ConfirmLocationSaveDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (addressName: string) => void;
-  onCancel: () => void;
   addressName: string;
-  newLat: number;
-  newLng: number;
+  onConfirm: (finalName: string) => void;
+  onCancel: () => void;
+  onOpenChange?: (open: boolean) => void;
+  newLat?: number;
+  newLng?: number;
 }
 
-export function ConfirmLocationSaveDialog({
-  open,
-  onOpenChange,
-  onConfirm,
-  onCancel,
-  addressName,
-  newLat,
-  newLng,
-}: ConfirmLocationSaveDialogProps) {
+export function ConfirmLocationSaveDialog({ open, addressName, onConfirm, onCancel }: ConfirmLocationSaveDialogProps) {
+  const [editedName, setEditedName] = useState(addressName);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Salvar Nova Localização?
-          </DialogTitle>
-          <DialogDescription>
-            Você moveu o pin para o endereço: <span className="font-semibold">{addressName}</span>.
-            Deseja salvar as novas coordenadas?
-          </DialogDescription>
+          <DialogTitle>Confirmar localização</DialogTitle>
         </DialogHeader>
-        <div className="py-4 text-sm text-muted-foreground">
-          <p>
-            <span className="font-medium">Latitude:</span> {newLat.toFixed(6)}
-          </p>
-          <p>
-            <span className="font-medium">Longitude:</span> {newLng.toFixed(6)}
-          </p>
-          <p className="mt-2">
-            Esta localização será salva para uso futuro e marcada como "atualizada".
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button onClick={() => onConfirm(addressName)}>
-            Salvar Localização
-          </Button>
+        <p className="text-sm text-muted-foreground mb-2">Confirme ou edite o nome do endereço:</p>
+        <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} />
+        <DialogFooter className="gap-2 mt-4">
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button onClick={() => onConfirm(editedName)}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

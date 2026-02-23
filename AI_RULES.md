@@ -1,56 +1,37 @@
-# Regras para Desenvolvimento com IA
+# AI Rules & Tech Stack
 
-Este documento descreve a pilha de tecnologia utilizada no projeto DeliveryFlow e as diretrizes para o uso de bibliotecas específicas. O objetivo é manter a consistência, a manutenibilidade e a performance da aplicação.
+## Tech Stack
+- **Framework**: React 18 with TypeScript and Vite for fast development and type safety.
+- **Styling**: Tailwind CSS for utility-first styling, following the custom design system defined in `src/index.css`.
+- **UI Components**: shadcn/ui (built on Radix UI) for accessible, high-quality accessible components.
+- **Icons**: Lucide React for a consistent and lightweight icon set.
+- **Routing**: React Router DOM for client-side navigation.
+- **State Management**: TanStack Query (React Query) for server state and caching; React hooks for local state.
+- **Backend/Auth**: Supabase for database, authentication, and real-time features.
+- **Maps**: Mapbox GL JS for interactive map visualizations and routing.
+- **Data Processing**: XLSX for parsing and handling Excel/CSV files.
+- **Testing**: Vitest and React Testing Library for unit and component testing.
 
----
+## Library Usage Rules
 
-## 🚀 Pilha de Tecnologia
+### UI & Styling
+- **shadcn/ui**: Always check `src/components/ui` before creating a new UI component. Use these as the foundation for all interface elements.
+- **Tailwind CSS**: Use Tailwind classes for all layout and styling. Avoid writing custom CSS unless it's for complex animations or global theme variables in `index.css`.
+- **Lucide React**: Use only Lucide icons to maintain visual consistency.
 
-O projeto DeliveryFlow é construído com as seguintes tecnologias:
+### Data & Logic
+- **TanStack Query**: Use for all asynchronous data fetching, mutations, and synchronization with Supabase. Do not use `useEffect` for data fetching.
+- **Supabase**: Use the generated client in `src/integrations/supabase/client.ts` for all database interactions.
+- **Zod**: Use Zod for schema validation, especially for form data and API responses.
+- **React Hook Form**: Use for managing form state and validation in conjunction with Zod.
 
-*   **Frontend Framework**: React (com TypeScript)
-*   **Build Tool**: Vite
-*   **Linguagem**: TypeScript
-*   **Estilização**: Tailwind CSS
-*   **Componentes UI**: shadcn/ui (baseado em Radix UI)
-*   **Roteamento**: React Router DOM
-*   **Backend as a Service (BaaS)**: Supabase (para autenticação, banco de dados e funções de borda)
-*   **Gerenciamento de Estado/Dados**: Tanstack Query (para requisições assíncronas e cache de dados)
-*   **Validação de Esquemas**: Zod
-*   **Processamento de Arquivos**: `xlsx` (para Excel) e `papaparse` (para CSV)
-*   **Ícones**: Lucide React
-*   **Notificações**: Sonner (para toasts)
-*   **Manipulação de Datas**: date-fns
+### Navigation & Feedback
+- **React Router**: Keep all route definitions in `src/App.tsx`. Use the `NavLink` component for navigation links.
+- **Sonner**: Use `sonner` for toast notifications and user feedback.
+- **Vaul**: Use for drawer/bottom sheet components on mobile views.
 
----
-
-## 📋 Regras de Uso de Bibliotecas
-
-Para garantir a padronização e evitar redundâncias, siga estas regras ao desenvolver ou modificar o código:
-
-*   **Componentes de UI**:
-    *   **Prioridade**: Sempre utilize os componentes da biblioteca `shadcn/ui`.
-    *   **Customização**: Se um componente `shadcn/ui` não atender às necessidades ou precisar de customização, crie um **novo componente** em `src/components/` e estilize-o com Tailwind CSS. **Nunca modifique os arquivos originais dos componentes `shadcn/ui`**.
-*   **Estilização**:
-    *   Utilize **exclusivamente Tailwind CSS** para toda a estilização. Evite estilos inline ou arquivos CSS separados, exceto para estilos globais definidos em `src/index.css`.
-*   **Gerenciamento de Estado**:
-    *   Para estado local de componentes, use `useState` e `useReducer` do React.
-    *   Para gerenciamento de estado global ou de servidor (data fetching, cache, sincronização), utilize `Tanstack Query`.
-*   **Roteamento**:
-    *   Utilize `react-router-dom` para todas as rotas da aplicação. As rotas principais devem ser definidas em `src/App.tsx`.
-*   **Backend, Autenticação e Banco de Dados**:
-    *   Todas as interações com o backend (autenticação, queries de banco de dados, real-time) devem ser feitas através do cliente Supabase (`@supabase/supabase-js`).
-    *   Funções auxiliares para Supabase devem ser colocadas em `src/lib/supabase-helpers.ts`.
-*   **Validação de Formulários e Dados**:
-    *   Utilize `Zod` para definir esquemas de validação para formulários e qualquer entrada de dados.
-*   **Processamento de Arquivos**:
-    *   Para leitura e escrita de arquivos Excel (`.xlsx`, `.xls`), utilize a biblioteca `xlsx`.
-    *   Para leitura e escrita de arquivos CSV (`.csv`), utilize a biblioteca `papaparse`.
-*   **Ícones**:
-    *   Utilize `lucide-react` para todos os ícones na aplicação.
-*   **Notificações**:
-    *   Para exibir mensagens de feedback ao usuário (toasts), utilize a biblioteca `sonner`.
-*   **Manipulação de Datas**:
-    *   Para qualquer operação ou formatação de datas, utilize `date-fns`.
-*   **Funções de Utilidade**:
-    *   Funções utilitárias gerais e de propósito amplo devem ser colocadas em `src/lib/utils.ts`.
+### Project Structure
+- **Pages**: Place top-level route components in `src/pages/`.
+- **Components**: Place reusable UI logic in `src/components/`.
+- **Hooks**: Place custom reusable logic in `src/hooks/`.
+- **Integrations**: Keep third-party service configurations (like Supabase) in `src/integrations/`.

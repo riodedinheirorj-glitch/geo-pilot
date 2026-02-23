@@ -1,65 +1,47 @@
+import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { PWAProvider } from "@/contexts/PWAContext";
-import { UpdateNotification } from "@/components/UpdateNotification";
-import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { InstallPromptDialog } from "@/components/InstallPromptDialog";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
-import LocationAdjustments from "./pages/LocationAdjustments";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function AuthEventBridge() {
-  const navigate = useNavigate();
-  
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const [session, setSession] = useState<any>(undefined);
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("App auth event:", event);
-      
-      if (event === "SIGNED_IN") {
-        // Verificar se é admin
-        // Esta verificação será feita na página Index também
-      } else if (event === "SIGNED_OUT") {
-        navigate("/auth");
-      } else if (event === "PASSWORD_RECOVERY") {
-        navigate("/auth");
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
     });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-    return () => subscription?.unsubscribe();
-  }, [navigate]);
-
-  return null;
-}
+  if (session === undefined) return null;
+  if (!session) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <PWAProvider>
-      <TooltipProvider>
-        <Sonner />
-        <UpdateNotification />
-        <OfflineIndicator />
-        <InstallPromptDialog />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <AuthEventBridge />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/adjust-locations" element={<LocationAdjustments />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </PWAProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 

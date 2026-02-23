@@ -1,581 +1,254 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Mail, Eye, EyeOff, Lock, User, Phone, CreditCard } from "lucide-react";
+import loginHeader from "@/assets/login-header.png";
+import loginBg from "@/assets/login-bg-new.png";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { Card } from "@/components/ui/card";
-import { z } from "zod";
-import { getUserRole, addInitialCredits } from "@/lib/supabase-helpers";
-import { Eye, EyeOff } from "lucide-react";
-import confetti from "canvas-confetti";
-import { WelcomeDialog } from "@/components/WelcomeDialog";
-import { AdminSetupDialog } from "@/components/AdminSetupDialog";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
-// Função para traduzir erros do Supabase
-const translateSupabaseError = (errorMessage: string): string => {
-  const errorMap: Record<string, string> = {
-    "Invalid login credentials": "Email ou senha inválidos",
-    "Email not confirmed": "Email não confirmado",
-    "User already registered": "Este email já está cadastrado",
-    "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
-    "Unable to validate email address: invalid format": "Formato de email inválido",
-    "Invalid email or password": "Email ou senha inválidos",
-    "Email link is invalid or has expired": "Link de email inválido ou expirado",
-    "Token has expired or is invalid": "Token expirado ou inválido",
-    "New password should be different from the old password": "A nova senha deve ser diferente da senha antiga",
-  };
-  return errorMap[errorMessage] || errorMessage;
-};
-
-// Validation schemas
-const authSchema = z.object({
-  email: z.string().trim().email("Email inválido").max(255, "Email muito longo"),
-  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres").max(100, "Senha muito longa"),
-});
-
-const signupSchema = authSchema.extend({
-  fullName: z.string().trim().min(1, "Nome é obrigatório").max(100, "Nome muito longo"),
-  phone: z.string().regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos"),
-});
-
-// Formata telefone para exibição
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-};
-
-export default function Auth() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [mode, setMode] = useState<"login" | "signup" | "reset" | "update-password">("login");
-  const [loading, setLoading] = useState(false);
+const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [cpf, setCpf] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [welcomeCredits, setWelcomeCredits] = useState(0);
-  const [showAdminSetup, setShowAdminSetup] = useState(false);
-  const [adminExists, setAdminExists] = useState(true); // Assume admin exists until checked
-  const [loadingAdminCheck, setLoadingAdminCheck] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // Detectar recuperação de senha via Supabase
-  useEffect(() => {
-    const checkForPasswordRecovery = async () => {
-      // Verificar parâmetros da URL para recuperação de senha
-      const params = new URLSearchParams(window.location.search);
-      const type = params.get("type");
-      
-      if (type === "recovery") {
-        // Supabase irá lidar com a verificação do token automaticamente
-        // Mudar para modo de atualização de senha
-        setMode("update-password");
-        toast.info("Defina sua nova senha");
-        return;
-      }
-      
-      // Verificar se usuário já está logado
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Verificar se é admin
-        const roles = await getUserRole(session.user.id);
-        const destinationRoute = roles ? "/admin" : "/";
-        navigate(destinationRoute);
-      }
-    };
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
 
-    checkForPasswordRecovery();
-    
-    // Listener para mudanças de estado de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setMode("update-password");
-        toast.info("Defina sua nova senha");
+  const formatCpf = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { full_name: fullName, phone, cpf: cpf.replace(/\D/g, '') }
+          }
+        });
+        if (error) throw error;
+        toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate("/");
       }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({ title: "Digite seu e-mail", description: "Informe o e-mail para redefinir a senha.", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
     });
-
-    return () => subscription?.unsubscribe();
-  }, [navigate]);
-
-  // Check if admin exists on component mount
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoadingAdminCheck(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('check-admin-exists');
-        if (error) {
-          console.error("Error checking admin existence:", error);
-          toast.error("Erro ao verificar status do administrador.");
-          setAdminExists(true); // Assume admin exists to be safe
-        } else {
-          setAdminExists(data.adminExists);
-        }
-      } catch (error) {
-        console.error("Unexpected error checking admin existence:", error);
-        toast.error("Erro inesperado ao verificar status do administrador.");
-        setAdminExists(true); // Assume admin exists to be safe
-      } finally {
-        setLoadingAdminCheck(false);
-      }
-    };
-    checkAdminStatus();
-  }, []);
-
-  // Função para disparar confetes
-  const triggerConfetti = () => {
-    const duration = 3 * 1000;
-    const animationEnd = Date.now() + duration;
-    const defaults = {
-      startVelocity: 30,
-      spread: 360,
-      ticks: 60,
-      zIndex: 999999
-    };
-
-    const randomInRange = (min: number, max: number) => {
-      return Math.random() * (max - min) + min;
-    };
-
-    const interval: any = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
-      }
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-      });
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-      });
-    }, 250);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate input
-    try {
-      authSchema.parse({ email, password });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      }
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      const userId = data.user.id;
-      // Check if user is admin
-      const roles = await getUserRole(userId);
-      const destinationRoute = roles ? "/admin" : "/";
-
-      toast.success("Login realizado com sucesso!");
-      setTimeout(() => {
-        navigate(destinationRoute);
-      }, 100);
-    } catch (error: any) {
-      const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate input
-    const phoneDigits = phone.replace(/\D/g, "");
-    try {
-      signupSchema.parse({ email, password, fullName, phone: phoneDigits });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      }
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phoneDigits,
-          },
-          emailRedirectTo: `${window.location.origin}/auth`,
-        },
-      });
-
-      if (error) throw error;
-
-      // Get the newly created user's ID and add initial credits
-      const newUserId = data.user?.id;
-      if (newUserId) {
-        const initialCreditsAmount = 3;
-        await addInitialCredits(newUserId, initialCreditsAmount);
-        setWelcomeCredits(initialCreditsAmount);
-      }
-
-      // Disparar confetes e mostrar popup de boas-vindas
-      triggerConfetti();
-      setShowWelcome(true);
-      toast.success("Conta criada com sucesso! Verifique seu email para confirmar sua conta.");
-
-      // Aguardar um pouco antes de mudar para login
-      setTimeout(() => {
-        setMode("login");
-      }, 100);
-    } catch (error: any) {
-      const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao criar conta";
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate email
-    try {
-      z.object({ email: z.string().trim().email("Email inválido") }).parse({ email });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      }
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?type=recovery`,
-      });
-
-      if (error) throw error;
-
-      toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
-      setMode("login");
-    } catch (error: any) {
-      const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao enviar email de recuperação";
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validate passwords
-    if (password.length < 6) {
-      toast.error("Senha deve ter no mínimo 6 caracteres");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("As senhas não coincidem");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: { user }, error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
-      if (updateError) throw updateError;
-
-      toast.success("Senha atualizada com sucesso!");
-      
-      // Após atualizar a senha, fazer logout e redirecionar para login
-      await supabase.auth.signOut();
-      
-      setTimeout(() => {
-        setMode("login");
-        toast.success("Senha atualizada com sucesso! Faça login com sua nova senha.");
-      }, 1500);
-    } catch (error: any) {
-      const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao atualizar senha";
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "E-mail enviado!", description: "Verifique sua caixa de entrada." });
     }
   };
 
   return (
-    <>
-      <WelcomeDialog open={showWelcome} onClose={() => setShowWelcome(false)} credits={welcomeCredits} />
-      <AdminSetupDialog open={showAdminSetup} onOpenChange={setShowAdminSetup} />
+    <div className="min-h-[100dvh] w-full relative overflow-hidden">
+      <div className="relative w-full min-h-[100dvh] flex flex-col">
+        {/* Background image - fills entire screen */}
+        <img src={loginBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
 
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">
-          <div className="text-center space-y-2">
-            <img src="/rotasmart-logo.png" alt="RotaSmart Logo" className="h-[100px] sm:h-[150px] w-auto mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {mode === "login" && "Entre na sua conta"}
-              {mode === "signup" && "Crie sua conta"}
-              {mode === "reset" && "Recuperar senha"}
-              {mode === "update-password" && "Defina sua nova senha"}
-            </p>
-          </div>
+        {/* Content overlay */}
+        <div className="relative z-10 flex flex-col flex-1 justify-end px-3 pb-4 pt-10 safe-bottom">
+          {/* Header image */}
+          
 
-          {mode === "login" && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Entrando..." : "Entrar"}
-              </Button>
-            </form>
-          )}
 
-          {mode === "signup" && (
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nome completo</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={formatPhone(phone)}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Criando conta..." : "Criar conta"}
-              </Button>
-            </form>
-          )}
 
-          {mode === "reset" && (
-            <form onSubmit={handleReset} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Enviando..." : "Enviar email de recuperação"}
-              </Button>
-            </form>
-          )}
-
-          {mode === "update-password" && (
-            <form onSubmit={handleUpdatePassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">Nova senha</Label>
-                <div className="relative">
-                  <Input
-                    id="new-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-1 text-muted-foreground hover:bg-transparent"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar senha</Label>
-                <Input
-                  id="confirm-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Atualizando..." : "Atualizar senha"}
-              </Button>
-            </form>
-          )}
-
-          <div className="text-center space-y-2 text-sm">
-            {mode === "login" && (
+          <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-card p-4 border border-border/50 pt-[27px]">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
+            {/* Signup-only fields */}
+            {isSignUp && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setMode("reset")}
-                  className="text-primary hover:underline block relative z-10"
-                >
-                  Esqueceu sua Senha ?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("signup")}
-                  className="text-primary hover:underline block relative z-10"
-                >
-                  Não tem conta? Criar uma
-                </button>
-                {!adminExists && !loadingAdminCheck && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminSetup(true)}
-                    className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
-                  >
-                    Setup Admin
-                  </button>
-                )}
+                {/* Nome Completo */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                    <User size={12} className="text-muted-foreground" />
+                    Nome Completo
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Seu nome completo"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
+                    required />
+                </div>
               </>
             )}
-            {mode === "signup" && (
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className="text-primary hover:underline relative z-10"
-              >
-                Já tem conta? Entrar
-              </button>
+
+            {/* Email */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                <Mail size={12} className="text-muted-foreground" />
+                E-mail
+              </label>
+              <Input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
+                  required />
+            </div>
+
+            {/* Signup-only: Telefone e CPF */}
+            {isSignUp && (
+              <>
+                {/* Telefone */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                    <Phone size={12} className="text-muted-foreground" />
+                    Telefone
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
+                    maxLength={15}
+                    required />
+                </div>
+
+                {/* CPF */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                    <CreditCard size={12} className="text-muted-foreground" />
+                    CPF
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatCpf(e.target.value))}
+                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
+                    maxLength={14}
+                    required />
+                </div>
+              </>
             )}
-            {mode === "reset" && (
-              <button
+
+            {/* Senha */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                  <Lock size={12} className="text-muted-foreground" />
+                  Senha
+                </label>
+                {!isSignUp &&
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[10px] text-primary hover:underline">
+
+                    Esqueceu sua senha?
+                  </button>
+                  }
+              </div>
+              <div className="relative">
+                <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-9 rounded-lg bg-background/60 border-border/60 pr-9 text-sm text-foreground placeholder:text-muted-foreground/60"
+                    required />
+
+                <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Entrar */}
+            <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-9 rounded-lg text-sm font-semibold gradient-primary shadow-button hover:opacity-90 transition-opacity">
+
+              {loading ? "Carregando..." : isSignUp ? "Criar conta" : "Entrar"}
+            </Button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] text-muted-foreground">ou</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Google */}
+            <Button
                 type="button"
-                onClick={() => setMode("login")}
-                className="text-primary hover:underline relative z-10"
-              >
-                Voltar para login
-              </button>
-            )}
-            {mode === "update-password" && (
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className="text-primary hover:underline relative z-10"
-              >
-                Voltar para login
-              </button>
-            )}
-          </div>
-        </Card>
+                variant="outline"
+                className="w-full h-9 rounded-lg text-xs font-medium border-border/60 bg-background/60 hover:bg-accent"
+                onClick={() => toast({ title: "Em breve", description: "Login com Google será habilitado em breve." })}>
+
+              <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+              Continuar com Google
+            </Button>
+          </form>
+
+          {/* Toggle signup/login */}
+          <p className="text-center mt-3 text-xs text-muted-foreground">
+            {isSignUp ? "Já tem conta? " : "Novo por aqui? "}
+            <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-primary font-semibold hover:underline">
+
+              {isSignUp ? "Entrar" : "Criar conta gratuita"}
+            </button>
+          </p>
+        </div>
+
+        </div>
       </div>
-    </>
-  );
-}
+    </div>);
+
+};
+
+export default Auth;
