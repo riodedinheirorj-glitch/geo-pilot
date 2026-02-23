@@ -121,56 +121,39 @@ const LocationAdjustment = ({ onNavigate, importedData, onUpdateData }: Location
   }, [localData?.totalAddresses]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F4F6F9] px-4 py-6">
-      {/* Card Principal */}
-      <div className="bg-white rounded-[24px] shadow-sm overflow-hidden flex flex-col mb-4">
-        {/* Header do Card */}
-        <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
+    <div className="flex flex-col h-full bg-[#F4F6F9]">
+      {/* Mapa - 80% da tela */}
+      <div className="relative w-full" style={{ height: '80%' }}>
+        <div ref={mapContainer} className="w-full h-full" />
+        {/* Dica flutuante sobre o mapa */}
+        <div className="absolute top-3 left-3 right-3 z-10">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-2 shadow-sm flex items-center gap-2">
+            <MapPin size={14} className="text-blue-500 shrink-0" />
+            <span className="text-xs text-gray-600 font-medium">Arraste os pins para corrigir as localizações</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé compacto */}
+      <div className="flex-1 flex flex-col justify-between px-4 py-3">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-              <MapPin size={18} className="text-blue-500" />
-            </div>
-            <h1 className="text-[17px] font-bold text-gray-900">Ajustar Localizações</h1>
+            <CheckCircle2 size={14} className="text-green-500" />
+            <span className="text-sm text-gray-700">
+              <span className="font-bold">{localData?.totalAddresses || 0}</span> endereços
+            </span>
           </div>
-          <span className="text-[13px] text-gray-400 font-medium">Arraste os pins para corrigir</span>
-        </div>
-
-        {/* Mapa */}
-        <div className="relative h-[320px] w-full">
-          <div ref={mapContainer} className="w-full h-full" />
-        </div>
-      </div>
-
-      {/* Card de Análise Concluída */}
-      <div className="bg-white rounded-[24px] shadow-sm p-6 flex flex-col gap-5">
-        <h2 className="text-[13px] font-bold text-blue-900/40 uppercase tracking-widest">Análise Concluída</h2>
-        
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center">
-              <CheckCircle2 size={16} className="text-green-500" />
-            </div>
-            <p className="text-[16px] text-gray-900">
-              <span className="font-bold">{localData?.totalAddresses || 0}</span> endereços reconhecidos
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center">
-              <CheckCircle2 size={16} className="text-green-500" />
-            </div>
-            <p className="text-[16px] text-gray-900">
-              <span className="font-bold">{localData?.duplicates || 0}</span> duplicados agrupados
-            </p>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={14} className="text-green-500" />
+            <span className="text-sm text-gray-700">
+              <span className="font-bold">{localData?.duplicates || 0}</span> duplicados
+            </span>
           </div>
         </div>
-      </div>
 
-      {/* Botão de Ação Inferior */}
-      <div className="mt-auto pt-4">
         <button 
           onClick={() => onNavigate("route")}
-          className="w-full gradient-primary text-white font-bold text-base py-4 rounded-[18px] shadow-button flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          className="w-full gradient-primary text-white font-bold text-base py-3.5 rounded-[18px] shadow-button flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
           INICIAR NAVEGAÇÃO <ChevronRight size={18} />
         </button>
