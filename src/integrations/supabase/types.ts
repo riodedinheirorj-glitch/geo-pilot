@@ -21,10 +21,10 @@ export type Database = {
           approved_by: string | null
           created_at: string
           credits: number
-          gateway: string | null
           gateway_charge_id: string | null
           id: string
           status: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -33,10 +33,10 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           credits: number
-          gateway?: string | null
           gateway_charge_id?: string | null
           id?: string
           status?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -45,29 +45,29 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           credits?: number
-          gateway?: string | null
           gateway_charge_id?: string | null
           id?: string
           status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
       downloads: {
         Row: {
-          downloaded_at: string
+          created_at: string
           file_name: string
           id: string
           user_id: string
         }
         Insert: {
-          downloaded_at?: string
+          created_at?: string
           file_name: string
           id?: string
           user_id: string
         }
         Update: {
-          downloaded_at?: string
+          created_at?: string
           file_name?: string
           id?: string
           user_id?: string
@@ -80,18 +80,21 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -126,21 +129,18 @@ export type Database = {
         Row: {
           created_at: string
           credits: number
-          id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           credits?: number
-          id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           credits?: number
-          id?: string
           updated_at?: string
           user_id?: string
         }
@@ -172,10 +172,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_credits: {
-        Args: { _credits: number; _user_id: string }
-        Returns: undefined
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -183,10 +179,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      process_download: {
-        Args: { _file_name: string; _user_id: string }
-        Returns: Json
-      }
+      process_download: { Args: { p_file_name: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
