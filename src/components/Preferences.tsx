@@ -3,7 +3,7 @@ import { ArrowLeft, Navigation, Check } from 'lucide-react';
 import { useState } from 'react';
 import iconGoogleMaps from '@/assets/icon-google-maps.png';
 import iconWaze from '@/assets/icon-waze.png';
-import iconApp from '@/assets/rotasmart-logo.png';
+import iconApp from '@/assets/rotasmart-logo-2.png';
 
 interface PreferencesProps {
   onNavigate: (screen: string) => void;
