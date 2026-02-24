@@ -73,7 +73,50 @@ const LocationAdjustment = ({ onNavigate, importedData, onUpdateData }: Location
     });
 
     if (hasValidCoords) {
-      map.fitBounds(bounds, { padding: 40, duration: 1000 });
+      // Collect valid coordinates
+      const validCoords: [number, number][] = [];
+      localData.rows.forEach((row) => {
+        const lat = parseFloat(String(row["Latitude"] || "").replace(',', '.'));
+        const lng = parseFloat(String(row["Longitude"] || "").replace(',', '.'));
+        if (!isNaN(lat) && !isNaN(lng)) validCoords.push([lng, lat]);
+      });
+
+      // Check if addresses are spread out by measuring bounds span
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      const latSpan = ne.lat - sw.lat;
+      const lngSpan = ne.lng - sw.lng;
+      const isSpreadOut = latSpan > 0.05 || lngSpan > 0.05; // ~5km spread
+
+      if (isSpreadOut && validCoords.length > 3) {
+        // Find the densest cluster: for each point, count neighbors within ~1km
+        const clusterRadius = 0.01; // ~1km in degrees
+        let bestCenter: [number, number] = validCoords[0];
+        let bestCount = 0;
+
+        validCoords.forEach((coord) => {
+          const count = validCoords.filter(
+            (c) => Math.abs(c[0] - coord[0]) < clusterRadius && Math.abs(c[1] - coord[1]) < clusterRadius
+          ).length;
+          if (count > bestCount) {
+            bestCount = count;
+            bestCenter = coord;
+          }
+        });
+
+        // Build bounds around the largest cluster
+        const clusterBounds = new mapboxgl.LngLatBounds();
+        validCoords.forEach((c) => {
+          if (Math.abs(c[0] - bestCenter[0]) < clusterRadius && Math.abs(c[1] - bestCenter[1]) < clusterRadius) {
+            clusterBounds.extend(c);
+          }
+        });
+
+        map.fitBounds(clusterBounds, { padding: 60, duration: 1000, maxZoom: 16 });
+      } else {
+        // All close together — zoom in to street level
+        map.fitBounds(bounds, { padding: 40, duration: 1000, maxZoom: 16 });
+      }
     }
   }, [localData?.totalAddresses]);
 
