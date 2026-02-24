@@ -155,22 +155,12 @@
   /* Mobile phone frame */
   .phone-frame {
     width: 390px;
-    max-width: 100%;
     min-height: 844px;
     border-radius: 40px;
     overflow: hidden;
     box-shadow: 0 32px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06);
     background: hsl(var(--background));
     position: relative;
-  }
-
-  @media (max-width: 767px) {
-    .phone-frame {
-      width: 100%;
-      min-height: 100vh;
-      border-radius: 0;
-      box-shadow: none;
-    }
   }
 
   .screen-container {
@@ -194,73 +184,4 @@
     font-weight: 600;
     color: hsl(var(--foreground));
   }
-}
-
-/* =============================
-   HUD SCI-FI LOGIN STYLES
-   ============================= */
-
-/* Grid background */
-.hud-grid-bg {
-  background-image:
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-}
-
-/* HUD input */
-.hud-input {
-  width: 100%;
-  padding: 10px 14px;
-  background: rgba(0, 212, 255, 0.04);
-  border: 1px solid rgba(0, 212, 255, 0.15);
-  border-radius: 8px;
-  color: #e0f7ff;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.hud-input::placeholder {
-  color: rgba(0, 212, 255, 0.3);
-}
-
-.hud-input:focus {
-  border-color: rgba(0, 212, 255, 0.5);
-  box-shadow: 0 0 12px rgba(0, 212, 255, 0.1);
-}
-
-/* HUD Keyframes */
-@keyframes hud-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes hud-rotate-reverse {
-  from { transform: rotate(360deg); }
-  to { transform: rotate(0deg); }
-}
-
-@keyframes hud-glow-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-
-@keyframes hud-float {
-  0% { transform: translateY(0) translateX(0); opacity: 0; }
-  10% { opacity: 0.6; }
-  90% { opacity: 0.6; }
-  100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
-}
-
-@keyframes hud-terminal-line {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes hud-cursor-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
 }

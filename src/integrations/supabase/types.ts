@@ -14,61 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_versions: {
+        Row: {
+          commit_sha: string | null
+          created_at: string
+          git_ref: string | null
+          id: string
+          version_hash: string
+        }
+        Insert: {
+          commit_sha?: string | null
+          created_at?: string
+          git_ref?: string | null
+          id?: string
+          version_hash: string
+        }
+        Update: {
+          commit_sha?: string | null
+          created_at?: string
+          git_ref?: string | null
+          id?: string
+          version_hash?: string
+        }
+        Relationships: []
+      }
       credit_purchases: {
         Row: {
           amount: number
-          approved_at: string | null
-          approved_by: string | null
           created_at: string
           credits: number
-          gateway: string | null
           gateway_charge_id: string | null
           id: string
           status: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           amount: number
-          approved_at?: string | null
-          approved_by?: string | null
           created_at?: string
           credits: number
-          gateway?: string | null
           gateway_charge_id?: string | null
           id?: string
           status?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           amount?: number
-          approved_at?: string | null
-          approved_by?: string | null
           created_at?: string
           credits?: number
-          gateway?: string | null
           gateway_charge_id?: string | null
           id?: string
           status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      delivery_addresses: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          notes: string | null
+          sequence: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          notes?: string | null
+          sequence?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          notes?: string | null
+          sequence?: number
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
       downloads: {
         Row: {
-          downloaded_at: string
-          file_name: string
+          created_at: string
           id: string
           user_id: string
         }
         Insert: {
-          downloaded_at?: string
-          file_name: string
+          created_at?: string
           id?: string
           user_id: string
         }
         Update: {
-          downloaded_at?: string
-          file_name?: string
+          created_at?: string
           id?: string
           user_id?: string
         }
@@ -77,72 +131,27 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          credits: number
           email: string
           full_name: string | null
           id: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
+          credits?: number
           email: string
           full_name?: string | null
-          id: string
+          id?: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
+          credits?: number
           email?: string
           full_name?: string | null
           id?: string
-        }
-        Relationships: []
-      }
-      transactions: {
-        Row: {
-          amount: number
-          created_at: string
-          description: string | null
-          id: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          description?: string | null
-          id?: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          description?: string | null
-          id?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_credits: {
-        Row: {
-          created_at: string
-          credits: number
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          credits?: number
-          id?: string
           updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          credits?: number
-          id?: string
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -172,10 +181,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_credits: {
-        Args: { _credits: number; _user_id: string }
-        Returns: undefined
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -183,13 +188,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      process_download: {
-        Args: { _file_name: string; _user_id: string }
-        Returns: Json
-      }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -317,7 +318,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "moderator", "user"],
     },
   },
 } as const

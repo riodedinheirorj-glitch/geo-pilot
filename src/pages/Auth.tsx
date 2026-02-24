@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Mail, Eye, EyeOff, Lock, User, Phone, CreditCard } from "lucide-react";
+import { Mail, Eye, EyeOff, Lock } from "lucide-react";
 import loginHeader from "@/assets/login-header.png";
-import loginBg from "@/assets/login-bg-new.png";
+import loginBg from "@/assets/login-bg.png";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,28 +11,10 @@ import { useNavigate } from "react-router-dom";
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [cpf, setCpf] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-  };
-
-  const formatCpf = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +25,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: { full_name: fullName, phone, cpf: cpf.replace(/\D/g, '') }
-          }
+          options: { emailRedirectTo: window.location.origin }
         });
         if (error) throw error;
         toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
@@ -78,10 +57,10 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full relative overflow-hidden">
-      <div className="relative w-full min-h-[100dvh] flex flex-col">
-        {/* Background image - fills entire screen */}
-        <img src={loginBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+    <div className="min-h-[100dvh] flex items-center justify-center bg-muted/30">
+      <div className="relative w-full max-w-sm min-h-[100dvh] sm:min-h-[812px] sm:rounded-3xl overflow-hidden flex flex-col">
+        {/* Background image - fills entire mobile frame */}
+        <img src={loginBg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 0%' }} />
 
         {/* Content overlay */}
         <div className="relative z-10 flex flex-col flex-1 justify-end px-3 pb-4 pt-10 safe-bottom">
@@ -92,26 +71,6 @@ const Auth = () => {
 
           <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-card p-4 border border-border/50 pt-[27px]">
           <form onSubmit={handleSubmit} className="space-y-2.5">
-            {/* Signup-only fields */}
-            {isSignUp && (
-              <>
-                {/* Nome Completo */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                    <User size={12} className="text-muted-foreground" />
-                    Nome Completo
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Seu nome completo"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
-                    required />
-                </div>
-              </>
-            )}
-
             {/* Email */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-foreground flex items-center gap-1">
@@ -125,44 +84,8 @@ const Auth = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
                   required />
+
             </div>
-
-            {/* Signup-only: Telefone e CPF */}
-            {isSignUp && (
-              <>
-                {/* Telefone */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                    <Phone size={12} className="text-muted-foreground" />
-                    Telefone
-                  </label>
-                  <Input
-                    type="tel"
-                    placeholder="(00) 00000-0000"
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhone(e.target.value))}
-                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
-                    maxLength={15}
-                    required />
-                </div>
-
-                {/* CPF */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                    <CreditCard size={12} className="text-muted-foreground" />
-                    CPF
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="000.000.000-00"
-                    value={cpf}
-                    onChange={(e) => setCpf(formatCpf(e.target.value))}
-                    className="h-9 rounded-lg bg-background/60 border-border/60 text-sm text-foreground placeholder:text-muted-foreground/60"
-                    maxLength={14}
-                    required />
-                </div>
-              </>
-            )}
 
             {/* Senha */}
             <div className="space-y-1">

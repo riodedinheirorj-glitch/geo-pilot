@@ -1,57 +1,68 @@
 
-# Redesign da Tela de Login - "Rotasmart Motorista"
 
-Vou recriar completamente o componente `LoginScreen.tsx` com o visual premium, light mode, inspirado na imagem de referencia enviada.
+## Sistema de Assinatura Mensal - R$ 34,99 via PIX
 
-## O que sera feito
+### Resumo
 
-### Visual e Layout
-- Fundo com gradiente branco para azul muito claro
-- Elementos graficos SVG no fundo simulando rede de rotas/conexoes (linhas e pontos sutis)
-- Card central flutuante branco com efeito glass discreto, sombra suave, bordas arredondadas (20px)
-- Largura maxima do card: 420px
-- Centralizado vertical e horizontalmente
+Criar uma tela completa de assinatura mensal onde o motorista pode assinar o plano de R$ 34,99/mes via PIX, com QR Code para pagamento. O sistema verificara se a assinatura esta ativa antes de permitir o uso de funcionalidades premium.
 
-### Topo
-- Icone de pin com gradiente azul para roxo (criado em SVG inline)
-- "Rotasmart" em azul escuro, bold
-- "Motorista" em azul mais claro, peso normal
-- Logo e texto lado a lado, centralizados
-- Texto descritivo abaixo em cinza medio
+---
 
-### Abas (Entrar / Cadastrar)
-- Container com fundo cinza claro arredondado
-- Aba ativa: fundo branco, sombra interna, texto azul
-- Aba inativa: sem fundo, texto cinza
-- Transicao suave
+### Componentes a criar
 
-### Formulario - Aba "Entrar"
-- Campo E-mail com label, borda cinza clara, foco azul
-- Campo Senha com toggle de visibilidade (icone olho)
-- Link "Esqueceu sua senha?" alinhado a direita
-- Botao "Entrar" com gradiente azul medio para azul vibrante, sombra, hover com elevacao
+**1. Tela de Assinatura (`src/components/Subscription.tsx`)**
+- Card com detalhes do plano (nome, preco R$ 34,99, beneficios)
+- Lista de beneficios inclusos (rotas ilimitadas, otimizacao, suporte, etc.)
+- Botao "ASSINAR AGORA" que abre o fluxo de pagamento PIX
+- Indicador de status da assinatura (ativa/expirada/sem assinatura)
+- Se ja assinante, mostrar data de expiracao e badge "ATIVO"
 
-### Formulario - Aba "Cadastrar"
-- Campos: Nome completo, Telefone (formatado), CPF (formatado), E-mail, Senha
-- Mesmos padroes visuais
-- Botao "Criar conta"
+**2. Modal de Pagamento PIX (`src/components/PixPaymentModal.tsx`)**
+- QR Code PIX gerado (inicialmente simulado com dados estaticos)
+- Codigo "copia e cola" do PIX
+- Timer de expiracao do QR Code (15 minutos)
+- Botao "Copiar codigo PIX"
+- Polling simulado para verificar pagamento (botao "Ja paguei" por enquanto)
+- Animacao de sucesso ao confirmar pagamento
 
-### Validacao
-- Campos obrigatorios - botao desabilitado se vazios
-- Validacao de email (formato)
-- Validacao de CPF (11 digitos)
-- Validacao de telefone (10-11 digitos)
-- Erro elegante abaixo do input invalido
+---
 
-## Detalhes Tecnicos
+### Alteracoes em arquivos existentes
 
-### Arquivo modificado
-- `src/components/LoginScreen.tsx` - reescrita completa
+**`src/pages/Index.tsx`**
+- Adicionar "subscription" ao tipo `Screen`
+- Importar e renderizar o componente `Subscription`
 
-### Abordagem
-- CSS inline e classes Tailwind para o visual premium
-- SVG inline para o icone do pin e para o fundo com rede de rotas
-- Formatadores de CPF e telefone mantidos
-- Estado de erros por campo com mensagens visuais
-- Botao desabilitado quando campos obrigatorios estao vazios
-- Sem dependencias novas necessarias
+**`src/components/BottomNav.tsx`**
+- Nenhuma alteracao (acesso via perfil ou dashboard)
+
+**`src/components/Profile.tsx`**
+- Adicionar item de menu "Assinatura" com icone de coroa/estrela
+- Mostrar badge de status (Ativo/Inativo)
+- Navegar para tela de assinatura ao clicar
+
+**`src/components/Dashboard.tsx`**
+- Adicionar banner no topo quando assinatura esta inativa/expirada
+- Banner com CTA "Assine agora" que leva a tela de assinatura
+
+---
+
+### Fluxo do usuario
+
+```text
+Perfil -> Assinatura -> Ver plano -> Assinar Agora
+  -> Modal PIX (QR Code + codigo copia/cola)
+  -> Confirmar pagamento -> Assinatura ativa por 30 dias
+```
+
+---
+
+### Detalhes tecnicos
+
+- O banco ja possui `user_wallets.subscription_expires_at` para controlar a validade
+- O QR Code PIX sera inicialmente simulado (imagem estatica + codigo mock)
+- Para integracao real futura, sera necessario criar uma Edge Function com um gateway de pagamento (ex: EfiPay, Mercado Pago) que gera o QR Code PIX dinamicamente
+- A verificacao de assinatura ativa sera feita comparando `subscription_expires_at` com a data atual
+- Ao "confirmar" pagamento, o sistema atualiza `subscription_expires_at` para `now() + 30 dias`
+- Componente usa o mesmo design system do app (cards arredondados, gradients, sombras)
+
